@@ -1,0 +1,10 @@
+/*
+
+!/modules
+!/package.json
+!/package-lock.json
+!/mito.config.ts
+!/.gitignore
+!/tsconfig.json
+
+.DS_Store

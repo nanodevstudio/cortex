@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+      "target": "ES2017",
+      "lib": ["DOM", "DOM.Iterable", "ESNext"],
+      "allowJs": false,
+      "skipLibCheck": false,
+      "esModuleInterop": true,
+      "allowSyntheticDefaultImports": true,
+      "strict": true,
+      "forceConsistentCasingInFileNames": true,
+      "module": "commonjs",
+      "moduleResolution": "Node",
+      "resolveJsonModule": true,
+      "plugins": [{ "transform": "@zerollup/ts-transform-paths" }],
+      "isolatedModules": true,
+      "noEmit": true,
+      "jsx": "react",
+      "baseUrl": "./modules",
+      "typeRoots": ["node_modules/@types", "node_modules/@nanodev/mito-typescript-lib/node_modules/@types"],
+      "paths": {
+        "@/*": ["*"]
+      }
+    },
+    "include": ["modules/**/*.ts"]
+  }
+  
