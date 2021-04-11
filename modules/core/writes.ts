@@ -1,4 +1,5 @@
 import { DBClient, getPGClient, query } from "./dbClient";
+import immer from "immer";
 import {
   getModelField,
   getModelInstance,
@@ -7,14 +8,15 @@ import {
   getSQLName,
 } from "./generateSchema";
 import { Model } from "./model";
+import {
+  addWhereClause,
+  emptyQuery,
+  QueryData,
+  SelectRow,
+  WhereClause,
+  whereToSQL,
+} from "./query";
 import { FieldType, FieldTypeF } from "./types";
-
-type UndefinedProperties<T> = {
-  [P in keyof T]-?: undefined extends T[P] ? P : never;
-}[keyof T];
-
-type ToOptional<T> = Partial<Pick<T, UndefinedProperties<T>>> &
-  Pick<T, Exclude<keyof T, UndefinedProperties<T>>>;
 
 export type UpdateTypeOfField<Field> = Field extends FieldTypeF<any, infer U>
   ? U
@@ -41,7 +43,7 @@ export type InsertInput<M> = {
       ? undefined extends U
         ? key
         : never
-      : never]?: M[key] extends FieldType<any, infer T, any> ? T : never;
+      : never]?: M[key] extends FieldTypeF<any, infer T, any> ? T : never;
   };
 
 export type PrimaryResult<M> = {
@@ -50,15 +52,17 @@ export type PrimaryResult<M> = {
     : never]: M[key] extends FieldTypeF<infer T, any, true> ? T : never;
 };
 
-class SQLSegmentList {
+export type SQLSegment = SQLSegmentList | SQLValue | SQLString;
+
+export class SQLSegmentList {
   constructor(public items: (SQLValue | SQLString | SQLSegmentList)[]) {}
 }
 
-class SQLValue {
+export class SQLValue {
   constructor(public value: any) {}
 }
 
-class SQLString {
+export class SQLString {
   constructor(public string: string) {}
 }
 
@@ -107,6 +111,17 @@ export const sql = (strings: TemplateStringsArray, ...values: any[]) => {
 
 export const raw = (text: string) => new SQLString(text);
 
+export const joinSQL = (
+  segments: (SQLSegment | null)[],
+  join: SQLSegment = sql` `
+) => {
+  return new SQLSegmentList(
+    segments
+      .filter((item): item is SQLSegmentList => item != null)
+      .flatMap((segment, i) => [...(i === 0 ? [] : [join]), segment])
+  );
+};
+
 class InsertQuery<M> {
   constructor(public model: Model<M>, public data: InsertInput<M>) {}
 
@@ -130,7 +145,9 @@ class InsertQuery<M> {
     const modelName = raw(getQualifiedSQLTable(this.model));
     const primaryKeysSegment = raw(primaryKeys.join(", "));
 
-    return sql`INSERT INTO ${modelName} (${keysSegment}) VALUES (${valuesSegment}) RETURNING ${primaryKeysSegment};`;
+    return sql`INSERT INTO ${modelName} (${keysSegment}) VALUES (${valuesSegment})${
+      primaryKeys.length > 0 ? sql` RETURNING ${primaryKeysSegment}` : sql``
+    };`;
   }
 
   async transact(db: DBClient): Promise<PrimaryResult<M>> {
@@ -168,4 +185,62 @@ export const insert = <M>(model: Model<M>, record: InsertInput<M>) => {
 
 export const insertAll = <M>(model: Model<M>, record: InsertInput<M>[]) => {
   return new InsertAllQuery<M>(model, record);
+};
+
+class UpdateQuery<M, SelectData extends any[]> {
+  constructor(
+    public model: Model<M>,
+    public record: Partial<InsertInput<M>>,
+    public query: QueryData<M, SelectData>
+  ) {}
+
+  where(clause: WhereClause<M>) {
+    return new UpdateQuery(
+      this.model,
+      this.record,
+      addWhereClause(this.query, clause)
+    );
+  }
+
+  return<NextSelectData extends (keyof M)[]>(...select: NextSelectData) {
+    return new UpdateQuery<M, [...SelectData, ...NextSelectData]>(
+      this.model,
+      this.record,
+      immer(this.query, (query) => {
+        query.select.push(
+          ...select.map((key) =>
+            raw(getQualifiedSQLColumn(this.model, key as any))
+          )
+        );
+      }) as any
+    );
+  }
+
+  toSQL() {
+    const { record, query, model } = this;
+
+    const assignments = Object.entries(record).map(([key, value]) => {
+      return sql`${raw(JSON.stringify(key))} = ${value}`;
+    });
+
+    return joinSQL([
+      sql`UPDATE ${raw(getQualifiedSQLTable(model))}`,
+      sql`SET ${joinSQL(assignments, sql`, `)}`,
+      whereToSQL(query.where),
+      query.select.length > 0
+        ? sql`RETURNING ${joinSQL(this.query.select, sql`, `)}`
+        : null,
+    ]);
+  }
+
+  async transact(db: DBClient): Promise<SelectRow<M, SelectData>[]> {
+    const [sql, values] = getQueryFromSegments(this.toSQL());
+    const result = await query(db, sql, values);
+
+    return result.rows;
+  }
+}
+
+export const update = <M>(model: Model<M>, record: Partial<InsertInput<M>>) => {
+  return new UpdateQuery<M, []>(model, record, emptyQuery(model));
 };

@@ -102,17 +102,17 @@ export const ref = <T, K extends keyof T>(
   ref: Model<T>,
   columnName: K
 ): FieldTypeF<
-  T[K] extends FieldType<infer T, any, any> ? NonNullable<T> : never,
-  T[K] extends FieldType<any, infer U, any> ? NonNullable<U> : never,
+  T[K] extends FieldTypeF<infer T, any, any> ? NonNullable<T> : never,
+  T[K] extends FieldTypeF<any, infer U, any> ? NonNullable<U> : never,
   false
 > => {
   return () => {
     return {
       T: castType<
-        T[K] extends FieldType<infer T, any, any> ? NonNullable<T> : never
+        T[K] extends FieldTypeF<infer T, any, any> ? NonNullable<T> : never
       >(),
       U: castType<
-        T[K] extends FieldType<any, infer U, any> ? NonNullable<U> : never
+        T[K] extends FieldTypeF<any, infer U, any> ? NonNullable<U> : never
       >(),
       primary: false,
       references: {

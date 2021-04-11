@@ -7,15 +7,21 @@ import {
 import { Model } from "./model";
 import { FieldTypeF } from "./types";
 import * as uuid from "uuid";
+import {
+  getQueryFromSegments,
+  joinSQL,
+  raw,
+  sql,
+  SQLSegment,
+  SQLSegmentList,
+} from "./writes";
+import immer from "immer";
 
 export interface QueryData<M, SelectData extends any[]> {
   model: Model<M>;
   selectKeys: SelectData;
-  select: string[];
-  where: string[];
-  vars: {
-    [id: string]: any;
-  };
+  select: SQLSegment[];
+  where: SQLSegment[];
 }
 
 export type TypeOfField<Field> = Field extends FieldTypeF<infer T> ? T : never;
@@ -40,24 +46,36 @@ export type WhereClause<M> = Partial<
   }
 >;
 
-export const convertToSelect = (query: QueryData<any, any>) => {
-  const sql = `SELECT ${query.select.join(", ")} FROM ${getQualifiedSQLTable(
-    query.model
-  )} ${query.where.length > 0 ? `WHERE ${query.where.join(" AND ")}` : ""};`;
+export const whereToSQL = (where: QueryData<any, any>["where"]) => {
+  return where.length > 0 ? sql`WHERE ${joinSQL(where, sql` AND `)}` : null;
+};
 
-  return [
-    Object.keys(query.vars).reduce((sql, varId, i) => {
-      return sql.replace(new RegExp(varId), () => `$${i + 1}`);
-    }, sql),
-    Object.values(query.vars),
-  ] as const;
+const convertToSelect = (query: QueryData<any, any>) => {
+  return joinSQL([
+    sql`SELECT ${joinSQL(query.select, sql`, `)}`,
+    sql`FROM ${raw(getQualifiedSQLTable(query.model))}`,
+    whereToSQL(query.where),
+  ]);
+};
+
+export const addWhereClause = <Q extends QueryData<any, any>>(
+  query: Q,
+  clause: WhereClause<Q["model"]>
+) => {
+  return immer(query, (query) => {
+    query.where.push(
+      ...Object.entries(clause).map(([key, value]) => {
+        return sql`${raw(getQualifiedSQLColumn(query.model, key))} = ${value}`;
+      })
+    );
+  });
 };
 
 class DBQuery<M, SelectData extends any[]> {
   constructor(public query: QueryData<M, SelectData>) {}
 
   async get(db: DBClient): Promise<QueryResult<QueryData<M, SelectData>>[]> {
-    const [sql, values] = convertToSelect(this.query);
+    const [sql, values] = getQueryFromSegments(convertToSelect(this.query));
     const queryResult = await query(db, sql, values);
 
     return queryResult.rows;
@@ -70,30 +88,15 @@ class DBQuery<M, SelectData extends any[]> {
   }
 
   where(clause: WhereClause<M>) {
-    const newVars: QueryData<any, any>["vars"] = {};
-    const clauses = Object.entries(clause).map(([key, value]) => {
-      const varId = uuid.v4();
-      newVars[varId] = value;
-      return `${getQualifiedSQLColumn(this.query.model, key)} = ${varId}`;
-    });
-
-    return new DBQuery({
-      ...this.query,
-      vars: {
-        ...this.query.vars,
-        ...newVars,
-      },
-      where: [...this.query.where, ...clauses],
-    });
+    return new DBQuery(addWhereClause(this.query, clause));
   }
 }
 
-const emptyQuery = <M>(model: Model<M>): QueryData<M, any> => ({
+export const emptyQuery = <M>(model: Model<M>): QueryData<M, any> => ({
   model,
   select: [],
   selectKeys: [],
   where: [],
-  vars: {},
 });
 
 export const select = <T, SelectData extends (keyof T)[]>(
@@ -103,6 +106,6 @@ export const select = <T, SelectData extends (keyof T)[]>(
   return new DBQuery<T, SelectData>({
     ...emptyQuery(model),
     selectKeys: keys,
-    select: keys.map((key) => getQualifiedSQLColumn(model, key as any)),
+    select: keys.map((key) => raw(getQualifiedSQLColumn(model, key as any))),
   });
 };

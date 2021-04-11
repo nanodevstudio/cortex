@@ -1,6 +1,6 @@
 import { Client, ClientConfig } from "pg";
 import { v4 as genUUID } from "uuid";
-import { DBClient } from "./dbClient";
+import { closeClient, DBClient, makeClient } from "./dbClient";
 
 interface DBTestManager {
   getTestDB(
@@ -25,22 +25,15 @@ export const makeDBTestManager = async (
 
       await client.query(`CREATE DATABASE ${dbName}`);
 
-      const dbConfig = {
-        ...config,
-        database: dbName,
-      };
-
-      const dbClient = new Client(dbConfig);
-
-      await dbClient.connect();
+      const cortextClient = makeClient({ ...config, database: dbName })
 
       return {
         release: async () => {
-          await dbClient.end();
+          closeClient(cortextClient)
           await client.query(`DROP DATABASE ${dbName} WITH (FORCE);`);
         },
 
-        client: { client: dbClient, config: dbConfig },
+        client: cortextClient,
       };
     },
   };

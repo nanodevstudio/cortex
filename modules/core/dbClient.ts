@@ -20,6 +20,7 @@ export const getPGClient = async (client: DBClient) => {
   client.client = pgClient;
   await pgClient.connect();
 
+
   return pgClient;
 };
 

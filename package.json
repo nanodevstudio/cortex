@@ -1,19 +1,22 @@
 {
-  "name": "cortex",
-  "version": "0.0.1",
+  "name": "@nanodev/cortex",
+  "version": "1.0.6",
   "description": "",
+  "main": "./build/core/index.js",
+  "types": "./build/core/index.d.ts",
   "scripts": {
     "dev": "mito dev",
     "configure": "mito configure",
     "mito": "mito",
-    "test": "jest"
+    "test": "jest",
+    "prepublish": "mito build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@nanodev/mito": "^1.0.0",
-    "@nanodev/mito-typescript-lib": "^1.0.6",
+    "@nanodev/mito": "^1.0.5",
+    "@nanodev/mito-typescript-lib": "^1.0.8",
     "@types/pg": "^7.14.11",
     "@types/uuid": "^8.3.0",
     "ts-jest": "^26.5.4",
