@@ -1,5 +1,13 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`db/framework/generateSQLInsert() can generate sql insert for model with references 1`] = `
+"CREATE TABLE public.\\"model\\" (
+\\"id\\" uuid NOT NULL DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+\\"name\\" text NOT NULL,
+\\"ref\\" uuid NOT NULL
+);"
+`;
+
 exports[`db/framework/generateSQLInsert() can generate sql insert for simple model 1`] = `
 "CREATE TABLE public.\\"model\\" (
 \\"id\\" uuid NOT NULL DEFAULT public.uuid_generate_v4() PRIMARY KEY,

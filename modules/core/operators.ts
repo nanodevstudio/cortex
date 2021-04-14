@@ -1,8 +1,7 @@
-import { QueryData } from "../query";
-import { queryExpression, QueryExpression } from "../symbolic";
-import { raw, sql, SQLSegment, SQLValue } from "../writes";
-
-const whereOperator: unique symbol = Symbol("isWhereOperator");
+import { QueryData } from "./query";
+import { QueryExpression } from "./symbolic";
+import { queryExpression, whereOperator } from "./symbols";
+import { raw, sql, SQLSegment, SQLValue } from "./writes";
 
 export const isWhereOperator = <T>(
   value: any

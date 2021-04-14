@@ -1,4 +1,5 @@
 export * as t from "./types";
+export * as op from "./operators";
 export { select } from "./query";
 export { resetAndSeed, buildSchemaAndSeed } from "./reset";
 export type { SeedFn, SeedContext, GlobPath, ResetBasis } from "./reset";

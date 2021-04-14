@@ -1,4 +1,4 @@
-import { decodeSelector, DecodeSelector, IDecodeSelector } from "./symbolic";
+import { DecodeSelector, IDecodeSelector } from "./symbolic";
 import { raw, sql, SQLSegment } from "./writes";
 import * as uuid from "uuid";
 import { getSelector } from "./query";
@@ -10,6 +10,7 @@ export class CountAggregation implements IDecodeSelector<number> {
 
   get select() {
     const selector = getSelector(this.source);
+
     return sql`(select count(*) from ${selector.select} as ${raw(
       JSON.stringify(this.id)
     )})::integer`;

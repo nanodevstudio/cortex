@@ -23,6 +23,6 @@ describe("db/framework/generateSQLInsert()", () => {
       ref = t.ref(Refed, "id");
     }
 
-    generateSQLInsert(Model); //?
+    expect(generateSQLInsert(Model)).toMatchSnapshot();
   });
 });

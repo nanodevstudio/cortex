@@ -8,21 +8,19 @@ import {
   getQualifiedSQLTable,
 } from "./generateSchema";
 import { Model } from "./model";
+import { isWhereOperator, WhereOperator } from "./operators";
 import { ProtectPromise } from "./protectPromise";
 import {
-  decodeSelector,
   DecodeSelector,
   FieldSelectionDecoder,
   IDecodeSelector,
   ModelSymbol,
   ObjectToSelectionEntries,
   QueryExpression,
-  queryExpression,
   SelectionEntry,
   symbolFromQuery,
-  symbolQuery,
 } from "./symbolic";
-import { isWhereOperator, WhereOperator } from "./tests/operators";
+import { decodeSelector, queryExpression, symbolQuery } from "./symbols";
 import { FieldTypeF } from "./types";
 import { getQueryFromSegments, joinSQL, raw, sql, SQLSegment } from "./writes";
 

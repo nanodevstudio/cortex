@@ -1,19 +1,10 @@
-import {
-  getModelField,
-  getQualifiedSQLColumn,
-  getSQLName,
-} from "./generateSchema";
-import { Model } from "./model";
-import {
-  addWhereClause,
-  emptyQuery,
-  QueryData,
-  select,
-  Strings,
-} from "./query";
-import { FieldType, FieldTypeF } from "./types";
 import * as uuid from "uuid";
-import { raw, sql, SQLSegment, SQLSegmentList } from "./writes";
+import { getModelField, getQualifiedSQLColumn } from "./generateSchema";
+import { Model } from "./model";
+import { addWhereClause, emptyQuery, QueryData, Strings } from "./query";
+import { decodeSelector, queryExpression, symbolQuery } from "./symbols";
+import { FieldType, FieldTypeF } from "./types";
+import { raw, sql, SQLSegment } from "./writes";
 
 export type ReadType<F> = F extends FieldTypeF<infer read, any, any>
   ? read
@@ -39,9 +30,6 @@ export type ModelSymbol<M> = {
 };
 
 export type FieldSymbol<F> = ReadType<F>;
-
-export const queryExpression: unique symbol = Symbol("expression");
-export const decodeSelector: unique symbol = Symbol("decodeSelector");
 
 export interface QueryExpression<M, T> {
   [queryExpression]: (query: QueryData<M, any>) => IExpression<T>;
@@ -112,8 +100,6 @@ export class FieldSelectionDecoder<F extends FieldType<any, any, any>>
     return value[this.id];
   }
 }
-
-export const symbolQuery: unique symbol = Symbol("symbolModel");
 
 export const symbolFromQuery = <M>(
   query: QueryData<M, any>

@@ -1,13 +1,12 @@
 import { ClientConfig } from "pg";
-import { Model, resetAndSeed } from "..";
+import { resetAndSeed } from "..";
 import { count } from "../aggregate";
 import { DBClient } from "../dbClient";
+import { equal, notEqual } from "../operators";
 import { makeDBTestManager } from "../postgresManager";
-import { select, SelectRow } from "../query";
-import { ModelSymbol, ReturnTypeUnsafe, SelectionEntry } from "../symbolic";
+import { select } from "../query";
 import * as t from "../types";
-import { insert, insertAll } from "../writes";
-import { equal, field, notEqual } from "./operators";
+import { insertAll } from "../writes";
 import { expectType } from "./test-utils";
 
 let db: DBClient;
