@@ -1,22 +1,24 @@
-import { DBClient, getPGClient, query } from "./dbClient";
 import immer from "immer";
+import { DBClient, getPGClient, query } from "./dbClient";
 import {
   getModelField,
   getModelInstance,
   getQualifiedSQLColumn,
   getQualifiedSQLTable,
-  getSQLName,
 } from "./generateSchema";
 import { Model } from "./model";
+import { ProtectPromise } from "./protectPromise";
 import {
   addWhereClause,
   emptyQuery,
+  makeSelectClause,
   QueryData,
   SelectRow,
   WhereClause,
   whereToSQL,
 } from "./query";
-import { FieldType, FieldTypeF } from "./types";
+import { FieldTypeF } from "./types";
+import * as uuid from "uuid";
 
 export type UpdateTypeOfField<Field> = Field extends FieldTypeF<any, infer U>
   ? U
@@ -122,8 +124,10 @@ export const joinSQL = (
   );
 };
 
-class InsertQuery<M> {
-  constructor(public model: Model<M>, public data: InsertInput<M>) {}
+class InsertQuery<M> extends ProtectPromise {
+  constructor(public model: Model<M>, public data: InsertInput<M>) {
+    super(".transact(db)");
+  }
 
   toSQL() {
     const keys = Object.keys(this.data);
@@ -158,8 +162,10 @@ class InsertQuery<M> {
   }
 }
 
-class InsertAllQuery<M> {
-  constructor(public model: Model<M>, public data: InsertInput<M>[]) {}
+class InsertAllQuery<M> extends ProtectPromise {
+  constructor(public model: Model<M>, public data: InsertInput<M>[]) {
+    super(".transact(db)");
+  }
 
   async transact(db: DBClient): Promise<PrimaryResult<M>[]> {
     const client = await getPGClient(db);
@@ -187,12 +193,14 @@ export const insertAll = <M>(model: Model<M>, record: InsertInput<M>[]) => {
   return new InsertAllQuery<M>(model, record);
 };
 
-class UpdateQuery<M, SelectData extends any[]> {
+class UpdateQuery<M, SelectData extends any[]> extends ProtectPromise {
   constructor(
     public model: Model<M>,
     public record: Partial<InsertInput<M>>,
     public query: QueryData<M, SelectData>
-  ) {}
+  ) {
+    super(".transact(db)");
+  }
 
   where(clause: WhereClause<M>) {
     return new UpdateQuery(
@@ -207,10 +215,14 @@ class UpdateQuery<M, SelectData extends any[]> {
       this.model,
       this.record,
       immer(this.query, (query) => {
-        query.select.push(
-          ...select.map((key) =>
-            raw(getQualifiedSQLColumn(this.model, key as any))
-          )
+        query.selectKeys.push(
+          ...select.map((key) => ({
+            key: key,
+            selector: {
+              id: uuid.v4(),
+              select: raw(getQualifiedSQLColumn(this.query, key as any)),
+            },
+          }))
         );
       }) as any
     );
@@ -224,11 +236,13 @@ class UpdateQuery<M, SelectData extends any[]> {
     });
 
     return joinSQL([
-      sql`UPDATE ${raw(getQualifiedSQLTable(model))}`,
+      sql`UPDATE ${raw(getQualifiedSQLTable(model))} as ${raw(
+        JSON.stringify(query.id)
+      )}`,
       sql`SET ${joinSQL(assignments, sql`, `)}`,
       whereToSQL(query.where),
-      query.select.length > 0
-        ? sql`RETURNING ${joinSQL(this.query.select, sql`, `)}`
+      query.selectKeys.length > 0
+        ? sql`RETURNING ${makeSelectClause(query)}`
         : null,
     ]);
   }
@@ -243,4 +257,12 @@ class UpdateQuery<M, SelectData extends any[]> {
 
 export const update = <M>(model: Model<M>, record: Partial<InsertInput<M>>) => {
   return new UpdateQuery<M, []>(model, record, emptyQuery(model));
+};
+
+export const isSQLSegment = (sql: any): sql is SQLSegment => {
+  return (
+    (sql != null && sql instanceof SQLSegmentList) ||
+    sql instanceof SQLString ||
+    sql instanceof SQLValue
+  );
 };

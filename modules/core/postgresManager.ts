@@ -25,12 +25,13 @@ export const makeDBTestManager = async (
 
       await client.query(`CREATE DATABASE ${dbName}`);
 
-      const cortextClient = makeClient({ ...config, database: dbName })
+      const cortextClient = makeClient({ ...config, database: dbName });
 
       return {
         release: async () => {
-          closeClient(cortextClient)
+          await closeClient(cortextClient);
           await client.query(`DROP DATABASE ${dbName} WITH (FORCE);`);
+          await client.end();
         },
 
         client: cortextClient,

@@ -1,4 +1,5 @@
 import { Model } from "./model";
+import { QueryData } from "./query";
 import { FieldType } from "./types";
 
 const camelToSnakeCase = (str: string) => {
@@ -27,8 +28,11 @@ export const getQualifiedSQLTable = <T>(model: Model<T>) => {
   return "public." + JSON.stringify(camelToSnakeCase(model.name));
 };
 
-export const getQualifiedSQLColumn = <T>(model: Model<T>, key: string) => {
-  return getQualifiedSQLTable(model) + "." + JSON.stringify(key);
+export const getQualifiedSQLColumn = <T extends QueryData<any, any>>(
+  query: T,
+  key: string
+) => {
+  return JSON.stringify(query.id) + "." + JSON.stringify(key);
 };
 
 export const joinLines = (lines: (string | string[])[]) =>

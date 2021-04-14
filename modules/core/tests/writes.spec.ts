@@ -38,9 +38,9 @@ describe("db/framework/insert()", () => {
     }
 
     await resetAndSeed({
-      client: db,
+      db: db,
       models: [Model],
-      seeders: [],
+      seeds: [],
     });
 
     const { id } = await insert(Model, { name: "test" }).transact(db);
@@ -62,9 +62,9 @@ describe("db/framework/update()", () => {
     }
 
     await resetAndSeed({
-      client: db,
+      db: db,
       models: [Model],
-      seeders: [],
+      seeds: [],
     });
 
     await insertAll(Model, [
@@ -88,9 +88,9 @@ describe("db/framework/update()", () => {
     }
 
     await resetAndSeed({
-      client: db,
+      db: db,
       models: [Model],
-      seeders: [],
+      seeds: [],
     });
 
     await insertAll(Model, [
@@ -111,5 +111,33 @@ describe("db/framework/update()", () => {
         { name: "test2", updateValue: 99 },
       ])
     );
+  });
+
+  test("optionla types are not required", async () => {
+    class Model {
+      id = t.generatedId;
+      name = t.optional(t.text);
+      age = t.integer;
+    }
+
+    await resetAndSeed({
+      db: db,
+      models: [Model],
+      seeds: [],
+    });
+
+    await insert(Model, { name: "test", age: 5 }).transact(db);
+    await insert(Model, { age: 6 }).transact(db);
+
+    expect(
+      await select(Model, "name", "age")
+        .where({
+          age: 6,
+        })
+        .one(db)
+    ).toEqual({
+      name: null,
+      age: 6,
+    });
   });
 });

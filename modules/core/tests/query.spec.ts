@@ -6,9 +6,14 @@ import * as t from "@/core/types";
 import { ClientConfig } from "pg";
 
 let client: DBClient;
-let release: () => Promise<void>;
+let release: (() => Promise<void>) | undefined;
 
 beforeAll(async () => {
+  if (release) {
+    await release();
+    release = undefined;
+  }
+
   const config: ClientConfig = {
     host: "localhost",
     port: 5432,
@@ -24,7 +29,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (release) {
-    release();
+    await release();
+    release = undefined;
   }
 });
 
@@ -36,9 +42,9 @@ describe("db/framework/select()", () => {
     }
 
     await buildSchemaAndSeed({
-      client,
+      db: client,
       models: [Model],
-      seeders: [],
+      seeds: [],
     });
 
     await query(client, `INSERT INTO model ("name") VALUES ('test')`);
