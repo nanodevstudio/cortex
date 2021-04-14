@@ -7,3 +7,4 @@ export { makeDBTestManager } from "./postgresManager";
 export { insert, update, insertAll, sql } from "./writes";
 export type { DBClient } from "./dbClient";
 export { makeClient, closeClient } from "./dbClient";
+export { count } from "./aggregate";

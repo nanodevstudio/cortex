@@ -1,40 +1,30 @@
+import immer from "immer";
+import * as uuid from "uuid";
 import { DBClient, query } from "./dbClient";
 import {
   getModelField,
   getModelInstance,
   getQualifiedSQLColumn,
   getQualifiedSQLTable,
-  getSQLName,
 } from "./generateSchema";
 import { Model } from "./model";
-import { FieldTypeF } from "./types";
-import * as uuid from "uuid";
-import {
-  getQueryFromSegments,
-  isSQLSegment,
-  joinSQL,
-  raw,
-  sql,
-  SQLSegment,
-  SQLSegmentList,
-} from "./writes";
-import immer from "immer";
 import { ProtectPromise } from "./protectPromise";
 import {
-  SelectionEntry,
-  ModelSymbol,
-  ObjectToSelectionEntries,
-  symbolFromQuery,
-  IDecodeSelector,
   decodeSelector,
-  Expression,
-  expression,
   DecodeSelector,
   FieldSelectionDecoder,
+  IDecodeSelector,
+  ModelSymbol,
+  ObjectToSelectionEntries,
+  QueryExpression,
+  queryExpression,
+  SelectionEntry,
+  symbolFromQuery,
   symbolQuery,
-  symbolField,
 } from "./symbolic";
-import { t } from ".";
+import { isWhereOperator, WhereOperator } from "./tests/operators";
+import { FieldTypeF } from "./types";
+import { getQueryFromSegments, joinSQL, raw, sql, SQLSegment } from "./writes";
 
 export interface QueryData<M, SelectData extends any[]> {
   id: string;
@@ -73,14 +63,19 @@ export type QueryResult<data> = data extends QueryData<infer M, infer S>
   ? SelectRow<M, S>
   : never;
 
-export type WhereClause<M> = Partial<
+export type WhereClauseData<M> = Partial<
   {
     [key in keyof M]:
       | SelectFieldValue<M, key>
-      | Expression<SelectFieldValue<M, key>>
+      | QueryExpression<M, SelectFieldValue<M, key>>
+      | WhereOperator<M, SelectFieldValue<M, key>>
       | SQLSegment;
   }
 >;
+
+export type WhereClause<M> =
+  | WhereClauseData<M>
+  | ((model: ModelSymbol<M>) => WhereClauseData<M>);
 
 export const whereToSQL = (where: QueryData<any, any>["where"]) => {
   return where.length > 0 ? sql`WHERE ${joinSQL(where, sql` AND `)}` : null;
@@ -177,9 +172,15 @@ export const addWhereClause = <Q extends QueryData<any, any>>(
 ) => {
   return immer(query, (query) => {
     query.where.push(
-      ...Object.entries(clause).map(([key, value]) => {
-        if (value != null && (value as any)[expression]) {
-          value = (value as any)[expression].sql;
+      ...Object.entries(
+        clause instanceof Function ? clause(symbolFromQuery(query)) : clause
+      ).map(([key, value]) => {
+        if (value != null && (value as any)[queryExpression]) {
+          value = (value as any)[queryExpression](query).sql;
+        }
+
+        if (isWhereOperator(value)) {
+          return value.getClause(query, raw(getQualifiedSQLColumn(query, key)));
         }
 
         return sql`${raw(getQualifiedSQLColumn(query, key))} = ${value}`;
@@ -220,7 +221,6 @@ class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
 
   async get(db: DBClient): Promise<QueryResult<QueryData<M, SelectData>>[]> {
     const [sql, values] = getQueryFromSegments(convertToSelect(this.query));
-    sql; //?
     const queryResult = await query(db, sql, values);
 
     return queryResult.rows;
@@ -248,7 +248,7 @@ class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
     );
   }
 
-  where(clause: WhereClause<M>) {
+  where(clause: WhereClause<M>): DBQuery<M, SelectData> {
     return new DBQuery(addWhereClause(this.query, clause));
   }
 }
@@ -267,7 +267,11 @@ interface Select {
   >(
     model: Sym,
     ...keys: SelectData
-  ): DecodeSelector<QueryResult<QueryData<M, SelectData>>>;
+  ): DecodeSelector<
+    QueryResult<
+      QueryData<Sym extends ModelSymbol<infer M> ? M : never, SelectData>
+    >
+  >;
 
   <T, SelectData extends (keyof T)[]>(
     model: Model<T>,

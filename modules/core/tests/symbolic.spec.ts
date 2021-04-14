@@ -7,6 +7,7 @@ import { select, SelectRow } from "../query";
 import { ModelSymbol, ReturnTypeUnsafe, SelectionEntry } from "../symbolic";
 import * as t from "../types";
 import { insert, insertAll } from "../writes";
+import { equal, field, notEqual } from "./operators";
 import { expectType } from "./test-utils";
 
 let db: DBClient;
@@ -34,6 +35,8 @@ class User {
 class Project {
   id = t.generatedId;
   name = t.text;
+  compareNumber1 = t.integer;
+  compareNumber2 = t.integer;
   user = t.ref(User, "id");
 }
 
@@ -49,9 +52,19 @@ const reset = async () => {
         ]).transact(db);
 
         await insertAll(Project, [
-          { user: testId, name: "test" },
-          { user: anotherId, name: "test" },
-          { user: anotherId, name: "another project" },
+          { user: testId, name: "test", compareNumber1: 1, compareNumber2: 3 },
+          {
+            user: anotherId,
+            name: "test",
+            compareNumber1: 1,
+            compareNumber2: 1,
+          },
+          {
+            user: anotherId,
+            name: "another project",
+            compareNumber1: 1,
+            compareNumber2: 5,
+          },
         ]).transact(db);
       },
     ],
@@ -135,5 +148,33 @@ describe("DBQuery::with", () => {
       name: "another",
       projects: 2,
     });
+  });
+});
+
+describe("op(operator, value)", () => {
+  test("can use != operator", async () => {
+    await reset();
+
+    const result = await select(Project, "name")
+      .where({
+        name: notEqual("test"),
+      })
+      .get(db);
+
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.some((value) => value.name === "test")).toBe(false);
+  });
+
+  test("can use != operator with to compare fields", async () => {
+    await reset();
+
+    const result = await select(Project, "name")
+      .where((project) => ({
+        name: "test",
+        compareNumber1: equal(project.compareNumber2),
+      }))
+      .get(db);
+
+    expect(result.length).toBe(1);
   });
 });

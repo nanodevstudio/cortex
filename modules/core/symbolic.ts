@@ -40,11 +40,11 @@ export type ModelSymbol<M> = {
 
 export type FieldSymbol<F> = ReadType<F>;
 
-export const expression: unique symbol = Symbol("expression");
+export const queryExpression: unique symbol = Symbol("expression");
 export const decodeSelector: unique symbol = Symbol("decodeSelector");
 
-export interface Expression<T> {
-  [expression]: IExpression<T>;
+export interface QueryExpression<M, T> {
+  [queryExpression]: (query: QueryData<M, any>) => IExpression<T>;
 }
 
 export interface IExpression<T> {
@@ -102,7 +102,7 @@ export class FieldSelectionDecoder<F extends FieldType<any, any, any>>
     this.select = sql`${raw(getQualifiedSQLColumn(query, key))}`;
   }
 
-  get [expression](): IExpression<ReadType<F>> {
+  [queryExpression](): IExpression<ReadType<F>> {
     return {
       sql: raw(getQualifiedSQLColumn(this.query, this.key)),
     };
