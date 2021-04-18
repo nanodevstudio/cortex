@@ -259,22 +259,21 @@ export const emptyQuery = <M>(model: Model<M>): QueryData<M, any> => ({
 });
 
 interface Select {
+  <T, SelectData extends (keyof T)[]>(
+    model: Model<T>,
+    ...keys: SelectData
+  ): DBQuery<T, SelectData>;
+
   <
     Sym extends ModelSymbol<any>,
     SelectData extends (Sym extends ModelSymbol<infer M> ? keyof M : never)[]
   >(
     model: Sym,
     ...keys: SelectData
-  ): DecodeSelector<
-    QueryResult<
-      QueryData<Sym extends ModelSymbol<infer M> ? M : never, SelectData>
-    >
+  ): ReferenceSelector<
+    Sym extends ModelSymbol<infer M> ? keyof M : never,
+    SelectData
   >;
-
-  <T, SelectData extends (keyof T)[]>(
-    model: Model<T>,
-    ...keys: SelectData
-  ): DBQuery<T, SelectData>;
 }
 
 class ReferenceSelector<M, SelectData extends any[]>
@@ -286,6 +285,26 @@ class ReferenceSelector<M, SelectData extends any[]>
   }
 
   constructor(public queryData: QueryData<M, SelectData>) {}
+
+  with<R>(
+    create: (base: ModelSymbol<M>) => R
+  ): ReferenceSelector<M, [...SelectData, ...ObjectToSelectionEntries<R>]> {
+    const result = create(symbolFromQuery(this.queryData));
+
+    return new ReferenceSelector(
+      immer(this.queryData, (query) => {
+        const entries = Object.entries(result).map(([key, selector]) => {
+          return { key, selector: selector as IDecodeSelector<any> };
+        });
+
+        query.selectKeys.push(...entries);
+      }) as any
+    );
+  }
+
+  where(clause: WhereClause<M>): ReferenceSelector<M, SelectData> {
+    return new ReferenceSelector(addWhereClause(this.queryData, clause));
+  }
 }
 
 export const select: Select = ((model: any, ...keys: any[]) => {
