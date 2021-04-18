@@ -1,33 +1,53 @@
 import { getModelField } from "./generateSchema";
 import { Model } from "./model";
 import immer from "immer";
+import { SQLSegment } from "./writes";
 
 export interface SQLType {
   baseType: string;
   modifiers: string[];
 }
 
-export interface FieldType<T, U = T, P extends true | false = false> {
+export type FieldReferencesType =
+  | { model: Model<any>; column: any }
+  | undefined;
+
+export interface FieldType<
+  T,
+  U = T,
+  P extends true | false = false,
+  R extends FieldReferencesType = any
+> {
   T: T;
   U: U;
   primary: P;
+  encode?: (value: any) => any;
   sqlType: SQLType;
+  references: R;
   columnName?: string;
 }
 
-export interface FieldTypeF<T, U = T, P extends true | false = false> {
-  (): FieldType<T, U, P>;
+export interface FieldTypeF<
+  T,
+  U = T,
+  P extends true | false = false,
+  R extends { model: Model<any>; column: string } | undefined = any
+> {
+  (): FieldType<T, U, P, R>;
 }
 
 export const castType = <T>() => (({} as any) as T);
 
 export const makeType = <T, U = T>(
-  baseType: string
-): FieldTypeF<T, U, false> => {
+  baseType: string,
+  encode?: (value: any) => any
+): FieldTypeF<T, U, false, undefined> => {
   return () => ({
     T: castType<T>(),
     U: castType<U>(),
     primary: false,
+    encode,
+    references: undefined,
     sqlType: {
       baseType,
       modifiers: ["NOT NULL"],
@@ -35,18 +55,27 @@ export const makeType = <T, U = T>(
   });
 };
 
+export class JSONValue {
+  constructor(public value: any) {}
+
+  toPostgres(prep: any) {
+    return prep(JSON.stringify(this.value));
+  }
+}
+
 export const text = makeType<string>("text");
 export const utcTimestamp = makeType<Date>("timestamp without time zone");
 export const integer = makeType<number>("integer");
 export const uuid = makeType<string>("uuid");
 export const boolean = makeType<boolean>("boolean");
 export const serial = makeType<number, number | undefined>("serial");
-export const jsonb = makeType<string>("jsonb");
 export const textEnum = <T extends string>() => makeType<T>("text");
+export const jsonb = <T>() =>
+  makeType<T>("jsonb", (value) => new JSONValue(value));
 
 export const array = <T, U, P extends boolean>(
-  typeF: FieldTypeF<T, U, P>
-): FieldTypeF<T[], U[], P> => {
+  typeF: FieldTypeF<T, U, P, undefined>
+): FieldTypeF<T[], U[], P, undefined> => {
   return () => {
     const type = typeF();
 
@@ -69,7 +98,7 @@ export const applyModifiers = (type: SQLType, modifiers: string[]): SQLType => {
 
 export const primaryGenerated = <T, U, P>(
   typeF: FieldTypeF<T, U, any>
-): FieldTypeF<T, U | undefined, true> => {
+): FieldTypeF<T, U | undefined, true, undefined> => {
   return () => {
     const type = typeF();
 
@@ -88,9 +117,9 @@ export const primaryGenerated = <T, U, P>(
 
 export const generatedId = primaryGenerated(uuid);
 
-export const primary = <T, U>(
-  fieldType: FieldTypeF<T, U, any>
-): FieldTypeF<T, U, true> => {
+export const primary = <T, U, R extends FieldReferencesType>(
+  fieldType: FieldTypeF<T, U, any, R>
+): FieldTypeF<T, U, true, R> => {
   return () => ({
     ...fieldType(),
     primary: true,
@@ -104,8 +133,9 @@ export const ref = <T, K extends keyof T>(
 ): (() => FieldType<
   T[K] extends FieldTypeF<infer T, any, any> ? NonNullable<T> : never,
   T[K] extends FieldTypeF<any, infer U, any> ? NonNullable<U> : never,
-  false
-> & { references: { model: Model<T>; column: K } }) => {
+  false,
+  { model: Model<T>; column: K }
+>) => {
   return () => {
     return {
       T: castType<
@@ -127,12 +157,14 @@ export const ref = <T, K extends keyof T>(
   };
 };
 
-export const optional = <T, U>(type: FieldTypeF<T, U, false>) => {
+export const optional = <T, U, R extends FieldReferencesType>(
+  type: FieldTypeF<T, U, false, R>
+) => {
   return (() => {
     return immer(type(), (type) => {
       type.sqlType.modifiers = type.sqlType.modifiers.filter(
         (modifier) => modifier != "NOT NULL"
       );
     });
-  }) as FieldTypeF<T | undefined, U | undefined, false>;
+  }) as FieldTypeF<T | undefined, U | undefined, false, R>;
 };

@@ -6,6 +6,7 @@ import { select } from "../query";
 import { resetAndSeed } from "../reset";
 import { insert, insertAll, update } from "../writes";
 import { expectType } from "./test-utils";
+import * as uuid from "uuid";
 
 let db: DBClient;
 let release: () => Promise<void>;
@@ -139,5 +140,43 @@ describe("db/framework/update()", () => {
       name: null,
       age: 6,
     });
+  });
+
+  test("writes json arrays as arrays instead of empty objects", async () => {
+    class Model {
+      id = t.generatedId;
+      json = t.jsonb<any[]>();
+    }
+
+    await resetAndSeed({
+      db: db,
+      models: [Model],
+      seeds: [],
+    });
+
+    await insert(Model, { json: [] }).transact(db);
+    const result = await select(Model, "id", "json").one(db);
+
+    expect(result?.json).toEqual([]);
+  });
+
+  test("can write lists to the database", async () => {
+    class Model {
+      id = t.generatedId;
+      array = t.array(t.uuid);
+    }
+
+    await resetAndSeed({
+      db: db,
+      models: [Model],
+      seeds: [],
+    });
+
+    const uidList = [uuid.v4(), uuid.v4(), uuid.v4()];
+
+    await insert(Model, { array: uidList }).transact(db);
+    const result = await select(Model, "id", "array").one(db);
+
+    expect(result?.array).toEqual(uidList);
   });
 });

@@ -17,7 +17,7 @@ import {
   WhereClause,
   whereToSQL,
 } from "./query";
-import { FieldTypeF } from "./types";
+import { FieldType, FieldTypeF } from "./types";
 import * as uuid from "uuid";
 
 export type UpdateTypeOfField<Field> = Field extends FieldTypeF<any, infer U>
@@ -66,6 +66,14 @@ export class SQLValue {
 
 export class SQLString {
   constructor(public string: string) {}
+}
+
+class ArrayEncode {
+  constructor(public value: any[]) {}
+
+  toPostgres(prep: (value: any) => any) {
+    return prep(JSON.stringify(this.value));
+  }
 }
 
 export const getQueryFromSegments = (segment: SQLSegmentList) => {
@@ -139,11 +147,18 @@ class InsertQuery<M> extends ProtectPromise {
     const keysSegment = raw(
       `${keys.map((key) => JSON.stringify(key)).join(", ")}`
     );
-    const valuesSegment = new SQLSegmentList(
+    const valuesSegment = joinSQL(
       values.map((value, i) => {
-        const segment = sql`${raw(i === 0 ? "" : ",")}${value}`;
-        return segment;
-      })
+        const key = keys[i];
+        const field = getModelField(this.model, key)!;
+
+        if (field == null) {
+          throw new Error(`no such field ${this.model.name}::${key}`);
+        }
+
+        return new SQLValue(encodeValue(field, value));
+      }),
+      sql`, `
     );
 
     const modelName = raw(getQualifiedSQLTable(this.model));
@@ -193,6 +208,19 @@ export const insertAll = <M>(model: Model<M>, record: InsertInput<M>[]) => {
   return new InsertAllQuery<M>(model, record);
 };
 
+export const encodeValue = (
+  field: FieldType<any, any, any, any>,
+  value: any
+) => {
+  if (field.encode) {
+    const res = field.encode(value);
+    res;
+    return res;
+  }
+
+  return value;
+};
+
 class UpdateQuery<M, SelectData extends any[]> extends ProtectPromise {
   constructor(
     public model: Model<M>,
@@ -232,7 +260,13 @@ class UpdateQuery<M, SelectData extends any[]> extends ProtectPromise {
     const { record, query, model } = this;
 
     const assignments = Object.entries(record).map(([key, value]) => {
-      return sql`${raw(JSON.stringify(key))} = ${value}`;
+      const field = getModelField(model, key)!;
+
+      if (field == null) {
+        throw new Error(`no such field ${model.name}::${key}`);
+      }
+
+      return sql`${raw(JSON.stringify(key))} = ${encodeValue(field, value)}`;
     });
 
     return joinSQL([

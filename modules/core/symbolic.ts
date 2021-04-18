@@ -20,9 +20,12 @@ export type ReturnTypeUnsafe<T> = T extends (...args: any) => any
 export const symbolField = Symbol("symbolField");
 
 export type ModelSymbol<M> = {
-  [key in Strings<keyof M>]: ReturnTypeUnsafe<M[key]> extends {
-    references: { model: Model<infer RefM>; column: any };
-  }
+  [key in Strings<keyof M>]: M[key] extends FieldTypeF<
+    any,
+    any,
+    any,
+    { model: Model<infer RefM>; column: string }
+  >
     ? ModelSymbol<RefM>
     : M[key] extends FieldTypeF<infer a, infer b, infer c>
     ? FieldSelectionDecoder<FieldType<a, b, c>>

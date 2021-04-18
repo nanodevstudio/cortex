@@ -81,8 +81,8 @@ describe("DBQuery::with", () => {
     await reset();
 
     const result = await select(User)
-      .with((base) => ({
-        myName: base.name,
+      .with((user) => ({
+        myName: user.name,
       }))
       .where({ name: "test" })
       .one(db);
