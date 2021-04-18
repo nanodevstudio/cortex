@@ -271,7 +271,7 @@ interface Select {
     model: Sym,
     ...keys: SelectData
   ): ReferenceSelector<
-    Sym extends ModelSymbol<infer M> ? keyof M : never,
+    Sym extends ModelSymbol<infer M> ? M : never,
     SelectData
   >;
 }
