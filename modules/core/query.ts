@@ -31,7 +31,14 @@ export interface QueryData<M, SelectData extends any[]> {
   where: SQLSegment[];
 }
 
-export type TypeOfField<Field> = Field extends FieldTypeF<infer T> ? T : never;
+export type TypeOfField<Field> = Field extends FieldTypeF<
+  infer T,
+  any,
+  any,
+  any
+>
+  ? T
+  : never;
 
 export type SelectFieldValue<M, Selector> = Selector extends keyof M
   ? TypeOfField<M[Selector]>
@@ -276,15 +283,19 @@ interface Select {
   >;
 }
 
-class ReferenceSelector<M, SelectData extends any[]>
-  implements IDecodeSelector<QueryResult<QueryData<M, SelectData>>> {
+class ReferenceSelector<M, SelectData extends any[]> {
   id = uuid.v4();
 
-  get select() {
-    return sql`(${convertToJSONSingleSelect(this.queryData)})`;
-  }
-
   constructor(public queryData: QueryData<M, SelectData>) {}
+
+  get [decodeSelector](): IDecodeSelector<
+    QueryResult<QueryData<M, SelectData>>
+  > {
+    return {
+      id: this.id,
+      select: sql`(${convertToJSONSingleSelect(this.queryData)})`,
+    };
+  }
 
   with<R>(
     create: (base: ModelSymbol<M>) => R

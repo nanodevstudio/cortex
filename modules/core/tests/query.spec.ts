@@ -1,9 +1,12 @@
 import { DBClient, query } from "@/core/dbClient";
 import { makeDBTestManager } from "@/core/postgresManager";
 import { select } from "@/core/query";
-import { buildSchemaAndSeed } from "@/core/reset";
+import { buildSchemaAndSeed, resetAndSeed } from "@/core/reset";
+import * as uuid from "uuid";
 import * as t from "@/core/types";
 import { ClientConfig } from "pg";
+import { insert, insertAll } from "../writes";
+import { expectType } from "./test-utils";
 
 let client: DBClient;
 let release: (() => Promise<void>) | undefined;
@@ -52,5 +55,35 @@ describe("db/framework/select()", () => {
     const result = await select(Model, "name").get(client);
 
     expect(result).toEqual([{ name: "test" }]);
+  });
+
+  test("can select by id", async () => {
+    class Model {
+      id = t.generatedId;
+      name = t.text;
+    }
+
+    const id = uuid.v4();
+
+    await resetAndSeed({
+      db: client,
+      models: [Model],
+      seeds: [
+        ({ db }) =>
+          insertAll(Model, [
+            { id, name: "test" },
+            { name: "another" },
+            { name: "third" },
+          ]).transact(db),
+      ],
+    });
+
+    const result = await select(Model, "id", "name")
+      .where({ id: id })
+      .one(client);
+
+    expectType<string>()(result!.id);
+
+    expect(result).toEqual({ id: id, name: "test" });
   });
 });
