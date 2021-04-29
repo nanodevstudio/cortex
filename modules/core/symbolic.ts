@@ -54,13 +54,10 @@ export interface IDecodeSelector<DecodeResult> {
   decodeResult?: (value: any) => DecodeResult;
 }
 
-export interface SelectionEntry<
-  Key extends string | number | symbol,
-  DecodeResult
-> {
+export type SelectionEntry<Key, DecodeResult> = {
   key: Key;
   selector: DecodeSelector<DecodeResult>;
-}
+};
 
 type UnionToTuple<T> = (
   (T extends any ? (t: T) => T : never) extends infer U

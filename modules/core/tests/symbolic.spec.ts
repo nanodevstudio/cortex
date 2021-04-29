@@ -26,6 +26,11 @@ beforeAll(async () => {
   ({ client: db, release } = await testManager.getTestDB("reset"));
 });
 
+class Sort {
+  id = t.generatedId;
+  value = t.integer;
+}
+
 class User {
   id = t.generatedId;
   name = t.text;
@@ -38,6 +43,23 @@ class Project {
   compareNumber2 = t.integer;
   user = t.ref(User, "id");
 }
+
+const sortBy = (array: any[], getOrderValue: (value: any) => number) => {
+  return array.slice().sort((a, b) => {
+    const aValue = getOrderValue(a);
+    const bValue = getOrderValue(b);
+
+    if (aValue > bValue) {
+      return 1;
+    }
+
+    if (aValue < bValue) {
+      return -1;
+    }
+
+    return 0;
+  });
+};
 
 const reset = async () => {
   await resetAndSeed({
@@ -64,6 +86,26 @@ const reset = async () => {
             compareNumber1: 1,
             compareNumber2: 5,
           },
+        ]).transact(db);
+      },
+    ],
+  });
+};
+
+const resetForSort = async () => {
+  await resetAndSeed({
+    db: db,
+    models: [Sort],
+    seeds: [
+      async ({ db }) => {
+        await insertAll(Sort, [
+          { value: 1 },
+          { value: 45 },
+          { value: 9 },
+          { value: 95 },
+          { value: 78 },
+          { value: 62 },
+          { value: 5 },
         ]).transact(db);
       },
     ],
@@ -175,5 +217,19 @@ describe("op(operator, value)", () => {
       .get(db);
 
     expect(result.length).toBe(1);
+  });
+});
+
+describe("orderBy", () => {
+  test("can sort asc / desc properly", async () => {
+    await resetForSort();
+
+    const result1 = await select(Sort, "id", "value").orderBy("value").get(db);
+    const result2 = await select(Sort, "id", "value")
+      .orderBy("value", "DESC")
+      .get(db);
+
+    expect(result1).toEqual(sortBy(result1, (value) => value.value));
+    expect(result2).toEqual(sortBy(result2, (value) => value.value).reverse());
   });
 });

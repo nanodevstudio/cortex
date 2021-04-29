@@ -1,6 +1,7 @@
 import immer from "immer";
 import * as uuid from "uuid";
 import { DBClient, query } from "./dbClient";
+import assert from "assert";
 import {
   getModelField,
   getModelInstance,
@@ -26,6 +27,7 @@ import { getQueryFromSegments, joinSQL, raw, sql, SQLSegment } from "./writes";
 
 export interface QueryData<M, SelectData extends any[]> {
   id: string;
+  orderBy: SQLSegment[];
   model: Model<M>;
   selectKeys: SelectData;
   where: SQLSegment[];
@@ -161,6 +163,14 @@ export const makeSelectClause = (query: QueryData<any, any>) => {
   );
 };
 
+const orderToSQL = (orderItems: SQLSegment[]) => {
+  if (orderItems.length > 0) {
+    return sql`ORDER BY ${joinSQL(orderItems, sql`, `)}`;
+  }
+
+  return null;
+};
+
 const convertToSelect = (query: QueryData<any, any>) => {
   return joinSQL([
     sql`SELECT ${makeSelectClause(query)}`,
@@ -168,6 +178,7 @@ const convertToSelect = (query: QueryData<any, any>) => {
       JSON.stringify(query.id)
     )}`,
     whereToSQL(query.where),
+    orderToSQL(query.orderBy),
   ]);
 };
 
@@ -193,6 +204,11 @@ export const addWhereClause = <Q extends QueryData<any, any>>(
     );
   });
 };
+
+type test = { key: "test" } | "test";
+type objs<T> = T extends { key: "test" } ? "true" : "false";
+type wat = objs<test>;
+type UnknownToNever<T> = unknown extends T ? never : T;
 
 export const getSelector = <T>(
   value: DecodeSelector<T>
@@ -253,6 +269,32 @@ class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
     );
   }
 
+  orderBy(
+    key:
+      | UnknownToNever<
+          Extract<SelectData[number], { key: any }> extends { key: infer K }
+            ? K
+            : never
+        >
+      | keyof M,
+    direction: "ASC" | "DESC" = "ASC"
+  ) {
+    return new DBQuery(
+      immer(this.query, (query) => {
+        assert(typeof key === "string");
+
+        query.orderBy = [
+          this.query.selectKeys.some(
+            (item) =>
+              (typeof item === "string" && item === key) || item.key === key
+          )
+            ? raw(JSON.stringify(key) + " " + direction)
+            : raw(getQualifiedSQLColumn(this.query, key) + " " + direction),
+        ];
+      })
+    );
+  }
+
   where(clause: WhereClause<M>): DBQuery<M, SelectData> {
     return new DBQuery(addWhereClause(this.query, clause));
   }
@@ -263,6 +305,7 @@ export const emptyQuery = <M>(model: Model<M>): QueryData<M, any> => ({
   model,
   selectKeys: [],
   where: [],
+  orderBy: [],
 });
 
 interface Select {
