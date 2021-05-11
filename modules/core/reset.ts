@@ -118,7 +118,7 @@ export const resetAndSeed = async (basis: ResetBasis) => {
 
   await adminClient.connect();
   await adminClient.query(
-    `DROP DATABASE IF EXISTS ${basis.db.config.database} WITH (FORCE);`
+    `DROP DATABASE IF EXISTS ${basis.db.config.database};`
   );
 
   await adminClient.query(`CREATE DATABASE ${basis.db.config.database};`);
