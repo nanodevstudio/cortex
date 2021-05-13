@@ -111,18 +111,10 @@ export const buildSchemaAndSeed = async (basis: ResetBasis) => {
 export const resetAndSeed = async (basis: ResetBasis) => {
   await closeClient(basis.db);
 
-  const adminClient = new Client({
-    ...basis.db.config,
-    database: "postgres",
-  });
-
-  await adminClient.connect();
-  await adminClient.query(
-    `DROP DATABASE IF EXISTS ${basis.db.config.database};`
+  const result = await query(
+    basis.db,
+    `drop schema public cascade; create schema public;`
   );
-
-  await adminClient.query(`CREATE DATABASE ${basis.db.config.database};`);
-  await adminClient.end();
 
   return buildSchemaAndSeed(basis);
 };
