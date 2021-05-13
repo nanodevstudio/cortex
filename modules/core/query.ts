@@ -220,7 +220,7 @@ export const getSelector = <T>(
   return value as IDecodeSelector<T>;
 };
 
-class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
+export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
   constructor(public query: QueryData<M, SelectData>) {
     super(".get(db)");
   }
