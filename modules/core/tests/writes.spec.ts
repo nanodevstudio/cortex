@@ -4,7 +4,7 @@ import { DBClient } from "../dbClient";
 import { makeDBTestManager } from "../postgresManager";
 import { select } from "../query";
 import { resetAndSeed } from "../reset";
-import { insert, insertAll, update } from "../writes";
+import { insert, insertAll, remove, update } from "../writes";
 import { expectType } from "./test-utils";
 import * as uuid from "uuid";
 
@@ -178,5 +178,53 @@ describe("db/framework/update()", () => {
     const result = await select(Model, "id", "array").one(db);
 
     expect(result?.array).toEqual(uidList);
+  });
+
+  test("can delete records", async () => {
+    class Model {
+      id = t.generatedId;
+      name = t.text;
+    }
+
+    await resetAndSeed({
+      db: db,
+      models: [Model],
+      seeds: [
+        async ({ db }) => {
+          await insertAll(Model, [
+            { name: "one" },
+            { name: "two" },
+            { name: "three" },
+          ]).transact(db);
+        },
+      ],
+    });
+
+    const checkQuery = async (results: any[]) => {
+      const result = await select(Model, "name").get(db);
+
+      expect(result).toEqual(expect.arrayContaining(results));
+    };
+
+    await checkQuery([{ name: "one" }, { name: "two" }, { name: "three" }]);
+
+    const deleted = await remove(Model)
+      .where({
+        name: "one",
+      })
+      .return("name")
+      .transact(db);
+
+    expect(deleted).toEqual(expect.arrayContaining([{ name: "one" }]));
+
+    await checkQuery([{ name: "two" }, { name: "three" }]);
+
+    await remove(Model)
+      .where({
+        name: "three",
+      })
+      .transact(db);
+
+    await checkQuery([{ name: "two" }]);
   });
 });

@@ -111,10 +111,7 @@ export const buildSchemaAndSeed = async (basis: ResetBasis) => {
 export const resetAndSeed = async (basis: ResetBasis) => {
   await closeClient(basis.db);
 
-  const result = await query(
-    basis.db,
-    `drop schema public cascade; create schema public;`
-  );
+  await query(basis.db, `drop schema public cascade; create schema public;`);
 
   return buildSchemaAndSeed(basis);
 };

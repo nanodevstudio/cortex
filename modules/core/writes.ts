@@ -289,8 +289,79 @@ class UpdateQuery<M, SelectData extends any[]> extends ProtectPromise {
   }
 }
 
+class RemoveQuery<M, SelectData extends any[]> extends ProtectPromise {
+  constructor(
+    public model: Model<M>,
+    public query: QueryData<M, SelectData>,
+    public protectRemoveAll: boolean = true
+  ) {
+    super(".transact(db)");
+  }
+
+  where(clause: WhereClause<M>) {
+    return new RemoveQuery(
+      this.model,
+      addWhereClause(this.query, clause),
+      false
+    );
+  }
+
+  return<NextSelectData extends (keyof M)[]>(...select: NextSelectData) {
+    return new RemoveQuery<M, [...SelectData, ...NextSelectData]>(
+      this.model,
+      immer(this.query, (query) => {
+        query.selectKeys.push(
+          ...select.map((key) => ({
+            key: key,
+            selector: {
+              id: uuid.v4(),
+              select: raw(getQualifiedSQLColumn(this.query, key as any)),
+            },
+          }))
+        );
+      }) as any,
+      this.protectRemoveAll
+    );
+  }
+
+  allowDeleteAll() {
+    return new RemoveQuery<M, SelectData>(this.model, this.query, false);
+  }
+
+  toSQL() {
+    const { query, model } = this;
+
+    return joinSQL([
+      sql`DELETE FROM ${raw(getQualifiedSQLTable(model))} as ${raw(
+        JSON.stringify(query.id)
+      )}`,
+      whereToSQL(query.where),
+      query.selectKeys.length > 0
+        ? sql`RETURNING ${makeSelectClause(query)}`
+        : null,
+    ]);
+  }
+
+  async transact(db: DBClient): Promise<SelectRow<M, SelectData>[]> {
+    const [sql, values] = getQueryFromSegments(this.toSQL());
+    const result = await query(db, sql, values);
+
+    if (this.protectRemoveAll) {
+      throw new Error(
+        "This query would remove all documents from this table. We prevented it, if you'd really like to do this then use the .allowDeleteAll() method"
+      );
+    }
+
+    return result.rows;
+  }
+}
+
 export const update = <M>(model: Model<M>, record: Partial<InsertInput<M>>) => {
   return new UpdateQuery<M, []>(model, record, emptyQuery(model));
+};
+
+export const remove = <M>(model: Model<M>) => {
+  return new RemoveQuery<M, []>(model, emptyQuery(model));
 };
 
 export const isSQLSegment = (sql: any): sql is SQLSegment => {
