@@ -19,6 +19,7 @@ import {
 } from "./query";
 import { FieldType, FieldTypeF } from "./types";
 import * as uuid from "uuid";
+import { queryExpression } from "./symbols";
 
 export type UpdateTypeOfField<Field> = Field extends FieldTypeF<any, infer U>
   ? U
@@ -107,12 +108,19 @@ export const sql = (strings: TemplateStringsArray, ...values: any[]) => {
       }
 
       const value = values[i];
-      const segment =
+      let segment;
+
+      if (
         value instanceof SQLValue ||
         value instanceof SQLString ||
         value instanceof SQLSegmentList
-          ? value
-          : new SQLValue(value);
+      ) {
+        segment = value;
+      } else if (value && value[queryExpression]) {
+        segment = value[queryExpression]().sql;
+      } else {
+        segment = new SQLValue(value);
+      }
 
       return [new SQLString(string), segment];
     })

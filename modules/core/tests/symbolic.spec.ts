@@ -6,7 +6,7 @@ import { equal, notEqual } from "../operators";
 import { makeDBTestManager } from "../postgresManager";
 import { select } from "../query";
 import * as t from "../types";
-import { insertAll } from "../writes";
+import { insertAll, sql } from "../writes";
 import { expectType } from "./test-utils";
 
 let db: DBClient;
@@ -208,6 +208,22 @@ describe("DBQuery::where", () => {
 
     expect(result.length).toBe(2);
     expect(result).toEqual([{ name: "another project" }, { name: "test" }]);
+  });
+
+  test("can filter on a column via sql", async () => {
+    await reset();
+
+    const result = await select(Project, "name")
+      .where((project) => sql`${project.name} LIKE 'test%'`)
+      .orderBy("name")
+      .get(db);
+
+    expect(result.length).toBe(3);
+    expect(result).toEqual([
+      { name: "test" },
+      { name: "test" },
+      { name: "test2" },
+    ]);
   });
 });
 
