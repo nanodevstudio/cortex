@@ -1,7 +1,13 @@
 import * as uuid from "uuid";
 import { getModelField, getQualifiedSQLColumn } from "./generateSchema";
 import { Model } from "./model";
-import { addWhereClause, emptyQuery, QueryData, Strings } from "./query";
+import {
+  addWhereClause,
+  emptyQuery,
+  QueryData,
+  SQLJoin,
+  Strings,
+} from "./query";
 import { decodeSelector, queryExpression, symbolQuery } from "./symbols";
 import { FieldType, FieldTypeF } from "./types";
 import { raw, sql, SQLSegment } from "./writes";
@@ -78,7 +84,8 @@ export type ObjectToSelectionEntries<O> = UnionToTuple<
 >;
 
 export class FieldSelectionDecoder<F extends FieldType<any, any, any>>
-  implements IDecodeSelector<ReadType<F>> {
+  implements IDecodeSelector<ReadType<F>>
+{
   public select: SQLSegment;
   public id: string = uuid.v4();
 

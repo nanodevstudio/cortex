@@ -74,6 +74,7 @@ const reset = async () => {
 
         await insertAll(Project, [
           { user: testId, name: "test", compareNumber1: 1, compareNumber2: 3 },
+          { user: testId, name: "test2", compareNumber1: 5, compareNumber2: 8 },
           {
             user: anotherId,
             name: "test",
@@ -192,6 +193,24 @@ describe("DBQuery::with", () => {
   });
 });
 
+describe("DBQuery::where", () => {
+  test("can filter on a related entity", async () => {
+    await reset();
+
+    const result = await select(Project, "name")
+      .where({
+        user: {
+          name: "another",
+        },
+      })
+      .orderBy("name")
+      .get(db);
+
+    expect(result.length).toBe(2);
+    expect(result).toEqual([{ name: "another project" }, { name: "test" }]);
+  });
+});
+
 describe("op(operator, value)", () => {
   test("can use != operator", async () => {
     await reset();
@@ -206,7 +225,7 @@ describe("op(operator, value)", () => {
     expect(result.some((value) => value.name === "test")).toBe(false);
   });
 
-  test("can use != operator with to compare fields", async () => {
+  test("can use == operator with to compare fields", async () => {
     await reset();
 
     const result = await select(Project, "name")

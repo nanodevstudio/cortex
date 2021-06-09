@@ -23,7 +23,21 @@ import {
 } from "./symbolic";
 import { decodeSelector, queryExpression, symbolQuery } from "./symbols";
 import { FieldTypeF } from "./types";
-import { getQueryFromSegments, joinSQL, raw, sql, SQLSegment } from "./writes";
+import {
+  getQueryFromSegments,
+  isSQLSegment,
+  joinSQL,
+  raw,
+  sql,
+  SQLSegment,
+} from "./writes";
+
+export interface SQLJoin<M> {
+  id: string;
+  type: "inner" | "outer" | "left";
+  model: Model<M>;
+  clauses: SQLSegment[];
+}
 
 export interface QueryData<M, SelectData extends any[]> {
   id: string;
@@ -31,6 +45,10 @@ export interface QueryData<M, SelectData extends any[]> {
   model: Model<M>;
   selectKeys: SelectData;
   where: SQLSegment[];
+  join: {
+    type: "inner" | "outer" | "left";
+    query: QueryData<any, any[]>;
+  }[];
 }
 
 export type TypeOfField<Field> = Field extends FieldTypeF<
@@ -40,6 +58,15 @@ export type TypeOfField<Field> = Field extends FieldTypeF<
   any
 >
   ? T
+  : never;
+
+export type ReferenceModel<Field> = Field extends FieldTypeF<
+  any,
+  any,
+  any,
+  { model: Model<infer M>; column: any }
+>
+  ? M
   : never;
 
 export type SelectFieldValue<M, Selector> = Selector extends keyof M
@@ -70,10 +97,13 @@ export type QueryResult<data> = data extends QueryData<infer M, infer S>
   ? SelectRow<M, S>
   : never;
 
+export type RelatedFilter<Ft> = WhereClause<ReferenceModel<Ft>>;
+
 export type WhereClauseData<M> = Partial<
   {
     [key in keyof M]:
       | SelectFieldValue<M, key>
+      | RelatedFilter<M[key]>
       | QueryExpression<M, SelectFieldValue<M, key>>
       | WhereOperator<M, SelectFieldValue<M, key>>
       | SQLSegment;
@@ -82,10 +112,36 @@ export type WhereClauseData<M> = Partial<
 
 export type WhereClause<M> =
   | WhereClauseData<M>
-  | ((model: ModelSymbol<M>) => WhereClauseData<M>);
+  | ((model: ModelSymbol<M>) => WhereClauseData<M> | SQLSegment)
+  | SQLSegment;
 
 export const whereToSQL = (where: QueryData<any, any>["where"]) => {
   return where.length > 0 ? sql`WHERE ${joinSQL(where, sql` AND `)}` : null;
+};
+
+export const flattenJoins = (
+  join: QueryData<any, any>["join"]
+): QueryData<any, any>["join"] => {
+  return join.flatMap((join) => [join, ...flattenJoins(join.query.join)]);
+};
+
+export const joinsToSQL = (join: QueryData<any, any>["join"]) => {
+  if (join.length === 0) {
+    return null;
+  }
+
+  const flattened = flattenJoins(join);
+
+  return joinSQL(
+    flattened.map((join) => {
+      return sql`${raw(join.type.toUpperCase())} JOIN ${raw(
+        getQualifiedSQLTable(join.query.model)
+      )} as ${raw(JSON.stringify(join.query.id))} ON ${joinSQL(
+        join.query.where,
+        sql` AND `
+      )}`;
+    })
+  );
 };
 
 export const makeJSONSelectClause = (
@@ -126,6 +182,7 @@ const convertToJSONSingleSelect = (query: QueryData<any, any>) => {
     sql`FROM ${raw(getQualifiedSQLTable(query.model))} as ${raw(
       JSON.stringify(query.id)
     )}`,
+    joinsToSQL(query.join),
     whereToSQL(query.where),
   ]);
 };
@@ -136,6 +193,7 @@ const convertToJSONSelect = (query: QueryData<any, any>) => {
     sql`FROM ${raw(getQualifiedSQLTable(query.model))} as ${raw(
       JSON.stringify(query.id)
     )}`,
+    joinsToSQL(query.join),
     whereToSQL(query.where),
   ]);
 };
@@ -177,6 +235,7 @@ const convertToSelect = (query: QueryData<any, any>) => {
     sql`FROM ${raw(getQualifiedSQLTable(query.model))} as ${raw(
       JSON.stringify(query.id)
     )}`,
+    joinsToSQL(query.join),
     whereToSQL(query.where),
     orderToSQL(query.orderBy),
   ]);
@@ -187,21 +246,57 @@ export const addWhereClause = <Q extends QueryData<any, any>>(
   clause: WhereClause<Q["model"]>
 ) => {
   return immer(query, (query) => {
-    query.where.push(
-      ...Object.entries(
-        clause instanceof Function ? clause(symbolFromQuery(query)) : clause
-      ).map(([key, value]) => {
+    clause =
+      clause instanceof Function ? clause(symbolFromQuery(query)) : clause;
+
+    if (isSQLSegment(clause)) {
+      query.where.push(sql`(${clause})`);
+    } else {
+      Object.entries(clause).forEach(([key, value]) => {
         if (value != null && (value as any)[queryExpression]) {
           value = (value as any)[queryExpression](query).sql;
         }
 
-        if (isWhereOperator(value)) {
-          return value.getClause(query, raw(getQualifiedSQLColumn(query, key)));
-        }
+        const field = getModelField(query.model, key);
 
-        return sql`${raw(getQualifiedSQLColumn(query, key))} = ${value}`;
-      })
-    );
+        if (isWhereOperator(value)) {
+          query.where.push(
+            value.getClause(query, raw(getQualifiedSQLColumn(query, key)))
+          );
+        } else if (
+          field &&
+          field.references &&
+          value &&
+          typeof value !== "string" &&
+          !isSQLSegment(value)
+        ) {
+          const joinQuery = immer(
+            emptyQuery(field.references.model),
+            (joinQuery) => {
+              joinQuery.where.push(
+                sql`${raw(getQualifiedSQLColumn(query, key))} = ${raw(
+                  getQualifiedSQLColumn(joinQuery, field.references.column)
+                )}`
+              );
+            }
+          );
+
+          const queryEntries =
+            value instanceof Function
+              ? value(symbolFromQuery(joinQuery))
+              : value;
+
+          query.join.push({
+            type: "inner",
+            query: addWhereClause(joinQuery, queryEntries),
+          });
+        } else {
+          query.where.push(
+            sql`${raw(getQualifiedSQLColumn(query, key))} = ${value}`
+          );
+        }
+      });
+    }
   });
 };
 
@@ -304,6 +399,7 @@ export const emptyQuery = <M>(model: Model<M>): QueryData<M, any> => ({
   id: uuid.v4(),
   model,
   selectKeys: [],
+  join: [],
   where: [],
   orderBy: [],
 });
