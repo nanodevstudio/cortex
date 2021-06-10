@@ -2,9 +2,10 @@ import { ClientConfig } from "pg";
 import { resetAndSeed } from "..";
 import { count } from "../aggregate";
 import { DBClient } from "../dbClient";
-import { equal, notEqual } from "../operators";
+import { anyOf, equal, notEqual } from "../operators";
 import { makeDBTestManager } from "../postgresManager";
 import { select } from "../query";
+import { SeedFn } from "../reset";
 import * as t from "../types";
 import { insertAll, sql } from "../writes";
 import { expectType } from "./test-utils";
@@ -61,34 +62,45 @@ const sortBy = (array: any[], getOrderValue: (value: any) => number) => {
   });
 };
 
-const reset = async () => {
+const reset = async (seed?: SeedFn<any>) => {
   await resetAndSeed({
     db: db,
     models: [User, Project],
     seeds: [
-      async ({ db }) => {
-        const [{ id: testId }, { id: anotherId }] = await insertAll(User, [
-          { name: "test" },
-          { name: "another" },
-        ]).transact(db);
+      seed ||
+        (async ({ db }) => {
+          const [{ id: testId }, { id: anotherId }] = await insertAll(User, [
+            { name: "test" },
+            { name: "another" },
+          ]).transact(db);
 
-        await insertAll(Project, [
-          { user: testId, name: "test", compareNumber1: 1, compareNumber2: 3 },
-          { user: testId, name: "test2", compareNumber1: 5, compareNumber2: 8 },
-          {
-            user: anotherId,
-            name: "test",
-            compareNumber1: 1,
-            compareNumber2: 1,
-          },
-          {
-            user: anotherId,
-            name: "another project",
-            compareNumber1: 1,
-            compareNumber2: 5,
-          },
-        ]).transact(db);
-      },
+          await insertAll(Project, [
+            {
+              user: testId,
+              name: "test",
+              compareNumber1: 1,
+              compareNumber2: 3,
+            },
+            {
+              user: testId,
+              name: "test2",
+              compareNumber1: 5,
+              compareNumber2: 8,
+            },
+            {
+              user: anotherId,
+              name: "test",
+              compareNumber1: 1,
+              compareNumber2: 1,
+            },
+            {
+              user: anotherId,
+              name: "another project",
+              compareNumber1: 1,
+              compareNumber2: 5,
+            },
+          ]).transact(db);
+        }),
     ],
   });
 };
@@ -252,6 +264,20 @@ describe("op(operator, value)", () => {
       .get(db);
 
     expect(result.length).toBe(1);
+  });
+
+  test("can use anyOf operator to select multiple", async () => {
+    await reset();
+
+    const result = await select(Project, "name")
+      .where({
+        compareNumber2: anyOf([3, 8]),
+      })
+      .orderBy("compareNumber2")
+      .get(db);
+
+    expect(result.length).toBe(2);
+    expect(result).toEqual([{ name: "test" }, { name: "test2" }]);
   });
 });
 

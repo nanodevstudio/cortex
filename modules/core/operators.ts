@@ -1,7 +1,7 @@
 import { QueryData } from "./query";
 import { QueryExpression } from "./symbolic";
 import { queryExpression, whereOperator } from "./symbols";
-import { raw, sql, SQLSegment, SQLValue } from "./writes";
+import { joinSQL, raw, sql, SQLSegment, SQLValue } from "./writes";
 
 export const isWhereOperator = <T>(
   value: any
@@ -39,6 +39,19 @@ class ValueQueryExpression implements QueryExpression<any, any> {
   }
 }
 
+class AnyValueQueryExpression implements QueryExpression<any, any> {
+  constructor(public value: any[]) {}
+
+  [queryExpression](model: any) {
+    return {
+      sql: sql`(${joinSQL(
+        this.value.map((value) => sql`${value}`),
+        sql`, `
+      )})`,
+    };
+  }
+}
+
 export const asExpression = (value: any): QueryExpression<any, any> => {
   if (value[queryExpression]) {
     return value;
@@ -51,6 +64,17 @@ export const notEqual = <T, M>(
   value: T | QueryExpression<M, T> | null
 ): WhereOperator<M, T> => {
   return new Operator<M, T>("!=", asExpression(value));
+};
+
+export const anyOf = <T, M>(
+  value: T[] | QueryExpression<M, T>
+): WhereOperator<M, T> => {
+  return new Operator<M, T>(
+    "IN",
+    Array.isArray(value)
+      ? new AnyValueQueryExpression(value)
+      : asExpression(queryExpression)
+  );
 };
 
 export const equal = <T, M>(

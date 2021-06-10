@@ -113,7 +113,8 @@ export type WhereClauseData<M> = Partial<
 export type WhereClause<M> =
   | WhereClauseData<M>
   | ((model: ModelSymbol<M>) => WhereClauseData<M> | SQLSegment)
-  | SQLSegment;
+  | SQLSegment
+  | null;
 
 export const whereToSQL = (where: QueryData<any, any>["where"]) => {
   return where.length > 0 ? sql`WHERE ${joinSQL(where, sql` AND `)}` : null;
@@ -248,6 +249,10 @@ export const addWhereClause = <Q extends QueryData<any, any>>(
   return immer(query, (query) => {
     clause =
       clause instanceof Function ? clause(symbolFromQuery(query)) : clause;
+
+    if (clause == null) {
+      return;
+    }
 
     if (isSQLSegment(clause)) {
       query.where.push(sql`(${clause})`);
