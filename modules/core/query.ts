@@ -44,6 +44,7 @@ export interface QueryData<M, SelectData extends any[]> {
   orderBy: SQLSegment[];
   model: Model<M>;
   selectKeys: SelectData;
+  limit?: number;
   where: SQLSegment[];
   join: {
     type: "inner" | "outer" | "left";
@@ -177,6 +178,10 @@ export const makeJSONSelectClause = (
   return sql`to_json(array_agg(json_build_object(${clauses})))`;
 };
 
+const limitToSQL = (limit: number | undefined) => {
+  return limit != null ? sql`LIMIT ${limit}` : null;
+};
+
 const convertToJSONSingleSelect = (query: QueryData<any, any>) => {
   return joinSQL([
     sql`SELECT ${makeJSONSelectClause(true, query)}`,
@@ -185,6 +190,8 @@ const convertToJSONSingleSelect = (query: QueryData<any, any>) => {
     )}`,
     joinsToSQL(query.join),
     whereToSQL(query.where),
+    orderToSQL(query.orderBy),
+    limitToSQL(query.limit),
   ]);
 };
 
@@ -196,6 +203,8 @@ const convertToJSONSelect = (query: QueryData<any, any>) => {
     )}`,
     joinsToSQL(query.join),
     whereToSQL(query.where),
+    orderToSQL(query.orderBy),
+    limitToSQL(query.limit),
   ]);
 };
 
@@ -239,6 +248,7 @@ const convertToSelect = (query: QueryData<any, any>) => {
     joinsToSQL(query.join),
     whereToSQL(query.where),
     orderToSQL(query.orderBy),
+    limitToSQL(query.limit),
   ]);
 };
 
@@ -365,6 +375,14 @@ export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
         });
 
         query.selectKeys.push(...entries);
+      }) as any
+    );
+  }
+
+  limit(count: number): DBQuery<M, SelectData> {
+    return new DBQuery(
+      immer(this.query, (query) => {
+        query.limit = count;
       }) as any
     );
   }

@@ -294,3 +294,18 @@ describe("orderBy", () => {
     expect(result2).toEqual(sortBy(result2, (value) => value.value).reverse());
   });
 });
+
+describe("limit", () => {
+  test("can limit sql properly", async () => {
+    await resetForSort();
+
+    const result1 = await select(Sort, "id", "value")
+      .orderBy("value")
+      .limit(2)
+      .get(db);
+
+    expect(result1).toEqual(
+      sortBy(result1, (value) => value.value).slice(0, 2)
+    );
+  });
+});
