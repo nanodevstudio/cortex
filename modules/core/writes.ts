@@ -286,11 +286,11 @@ class UpdateQuery<M, SelectData extends any[]> extends ProtectPromise {
       const column = raw(JSON.stringify(key));
       let result: any = value;
 
-      if (result instanceof Function) {
+      if (result && result instanceof Function) {
         result = result(symbolFromQuery(query));
       }
 
-      if (result[queryExpression]) {
+      if (result && result[queryExpression]) {
         value = result[queryExpression]().sql;
       }
 
