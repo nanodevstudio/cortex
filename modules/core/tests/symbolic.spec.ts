@@ -7,7 +7,7 @@ import { makeDBTestManager } from "../postgresManager";
 import { select } from "../query";
 import { SeedFn } from "../reset";
 import * as t from "../types";
-import { insertAll, sql } from "../writes";
+import { insertAll, sql, update } from "../writes";
 import { expectType } from "./test-utils";
 
 let db: DBClient;
@@ -307,5 +307,25 @@ describe("limit", () => {
     expect(result1).toEqual(
       sortBy(result1, (value) => value.value).slice(0, 2)
     );
+  });
+});
+
+describe("update by sql", () => {
+  test("update via sql columns", async () => {
+    await reset();
+
+    await update(Project, {
+      compareNumber1: (project) => project.compareNumber2,
+    }).transact(db);
+
+    const results = await select(
+      Project,
+      "compareNumber1",
+      "compareNumber2"
+    ).get(db);
+
+    for (const result of results) {
+      expect(result.compareNumber1).toEqual(result.compareNumber2);
+    }
   });
 });

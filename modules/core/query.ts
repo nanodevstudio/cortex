@@ -350,6 +350,10 @@ export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
     };
   }
 
+  toSQL() {
+    return getQueryFromSegments(convertToSelect(this.query));
+  }
+
   async get(db: DBClient): Promise<QueryResult<QueryData<M, SelectData>>[]> {
     const [sql, values] = getQueryFromSegments(convertToSelect(this.query));
     const queryResult = await query(db, sql, values);
@@ -402,10 +406,7 @@ export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
         assert(typeof key === "string");
 
         query.orderBy = [
-          this.query.selectKeys.some(
-            (item) =>
-              (typeof item === "string" && item === key) || item.key === key
-          )
+          this.query.selectKeys.some((item) => item.key === key)
             ? raw(JSON.stringify(key) + " " + direction)
             : raw(getQualifiedSQLColumn(this.query, key) + " " + direction),
         ];

@@ -20,6 +20,7 @@ import {
 import { FieldType, FieldTypeF } from "./types";
 import * as uuid from "uuid";
 import { queryExpression } from "./symbols";
+import { ModelSymbol, QueryExpression, symbolFromQuery } from "./symbolic";
 
 export type UpdateTypeOfField<Field> = Field extends FieldTypeF<any, infer U>
   ? U
@@ -34,19 +35,27 @@ export type SelectField<M, key> = key extends keyof M ? M[key] : never;
 export type ExistsOrNever<T> = T extends undefined ? never : T;
 export type UndefinedOrNever<T> = T extends undefined ? T : never;
 
+export type InsertValue<M, T> =
+  | T
+  | ((modelSymbol: ModelSymbol<M>) => SQLSegment | QueryExpression<M, T>);
+
 export type InsertInput<M> = {
   [key in keyof M as M[key] extends FieldTypeF<any, infer U, any>
     ? undefined extends U
       ? never
       : key
-    : never]-?: M[key] extends FieldTypeF<any, infer T, any> ? T : never;
+    : never]-?: M[key] extends FieldTypeF<any, infer T, any>
+    ? InsertValue<M, T>
+    : never;
 } &
   {
     [key in keyof M as M[key] extends FieldTypeF<any, infer U, any>
       ? undefined extends U
         ? key
         : never
-      : never]?: M[key] extends FieldTypeF<any, infer T, any> ? T : never;
+      : never]?: M[key] extends FieldTypeF<any, infer T, any>
+      ? InsertValue<M, T>
+      : never;
   };
 
 export type PrimaryResult<M> = {
@@ -274,7 +283,22 @@ class UpdateQuery<M, SelectData extends any[]> extends ProtectPromise {
         throw new Error(`no such field ${model.name}::${key}`);
       }
 
-      return sql`${raw(JSON.stringify(key))} = ${encodeValue(field, value)}`;
+      const column = raw(JSON.stringify(key));
+      let result: any = value;
+
+      if (result instanceof Function) {
+        result = result(symbolFromQuery(query));
+      }
+
+      if (result[queryExpression]) {
+        value = result[queryExpression]().sql;
+      }
+
+      if (isSQLSegment(value)) {
+        return sql`${column} = ${value}`;
+      }
+
+      return sql`${column} = ${encodeValue(field, value)}`;
     });
 
     return joinSQL([
