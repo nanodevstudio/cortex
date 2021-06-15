@@ -25,6 +25,9 @@ export type ReturnTypeUnsafe<T> = T extends (...args: any) => any
 
 export const symbolField = Symbol("symbolField");
 
+export type FieldSelection<M, F> = DecodeSelector<ReadType<F>> &
+  QueryExpression<M, ReadType<F>>;
+
 export type ModelSymbol<M> = {
   [key in Strings<keyof M>]: M[key] extends FieldTypeF<
     any,
@@ -32,9 +35,12 @@ export type ModelSymbol<M> = {
     any,
     { model: Model<infer RefM>; column: string }
   >
-    ? ModelSymbol<RefM>
+    ? ModelSymbol<RefM> &
+        (M[key] extends FieldTypeF<infer a, infer b, infer c, infer r>
+          ? FieldSelection<RefM, FieldTypeF<a, b, c, r>>
+          : never)
     : M[key] extends FieldTypeF<infer a, infer b, infer c>
-    ? FieldSelectionDecoder<FieldType<a, b, c>>
+    ? FieldSelection<M, FieldTypeF<a, b, c>>
     : never;
 };
 
@@ -109,7 +115,8 @@ export class FieldSelectionDecoder<F extends FieldType<any, any, any>>
 }
 
 export const symbolFromQuery = <M>(
-  query: QueryData<M, any>
+  query: QueryData<M, any>,
+  decoder?: FieldSelectionDecoder<any>
 ): ModelSymbol<M> => {
   return new Proxy({} as any, {
     get(self, key: string | symbol) {
@@ -118,18 +125,31 @@ export const symbolFromQuery = <M>(
       }
 
       if (typeof key === "symbol") {
+        if (decoder) {
+          if (key === queryExpression) {
+            return () => decoder[queryExpression]();
+          }
+
+          if (key === decodeSelector) {
+            return decoder;
+          }
+        }
+
         return undefined;
       }
 
       const field = getModelField(query.model, key);
 
       if (field && (field as any).references) {
+        const fieldSelection = new FieldSelectionDecoder(field, query, key);
+
         return symbolFromQuery(
           addWhereClause(emptyQuery((field as any).references.model), {
             [(field as any).references.column]: raw(
               getQualifiedSQLColumn(query, key)
             ),
-          })
+          }),
+          fieldSelection
         );
       }
 

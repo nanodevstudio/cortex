@@ -13,6 +13,7 @@ import { isWhereOperator, WhereOperator } from "./operators";
 import { ProtectPromise } from "./protectPromise";
 import {
   DecodeSelector,
+  FieldSelection,
   FieldSelectionDecoder,
   IDecodeSelector,
   ModelSymbol,
@@ -105,7 +106,7 @@ export type WhereClauseData<M> = Partial<
     [key in keyof M]:
       | SelectFieldValue<M, key>
       | RelatedFilter<M[key]>
-      | QueryExpression<M, SelectFieldValue<M, key>>
+      | QueryExpression<any, SelectFieldValue<M, key>>
       | WhereOperator<M, SelectFieldValue<M, key>>
       | SQLSegment;
   }
@@ -315,9 +316,6 @@ export const addWhereClause = <Q extends QueryData<any, any>>(
   });
 };
 
-type test = { key: "test" } | "test";
-type objs<T> = T extends { key: "test" } ? "true" : "false";
-type wat = objs<test>;
 type UnknownToNever<T> = unknown extends T ? never : T;
 
 export const getSelector = <T>(
@@ -428,22 +426,18 @@ export const emptyQuery = <M>(model: Model<M>): QueryData<M, any> => ({
   orderBy: [],
 });
 
+interface RefSelect {
+  <M, SelectData extends (keyof M)[]>(
+    model: ModelSymbol<M> & FieldSelection<M, any>,
+    ...keys: SelectData
+  ): ReferenceSelector<M, SelectData>;
+}
+
 interface Select {
   <T, SelectData extends (keyof T)[]>(
     model: Model<T>,
     ...keys: SelectData
   ): DBQuery<T, SelectData>;
-
-  <
-    Sym extends ModelSymbol<any>,
-    SelectData extends (Sym extends ModelSymbol<infer M> ? keyof M : never)[]
-  >(
-    model: Sym,
-    ...keys: SelectData
-  ): ReferenceSelector<
-    Sym extends ModelSymbol<infer M> ? M : never,
-    SelectData
-  >;
 }
 
 class ReferenceSelector<M, SelectData extends any[]> {
@@ -481,24 +475,24 @@ class ReferenceSelector<M, SelectData extends any[]> {
   }
 }
 
+export const subselect: RefSelect = ((model: any, ...keys: any[]) => {
+  const query = model[symbolQuery];
+  const queryModel = query.model;
+
+  return new ReferenceSelector({
+    ...query,
+    selectKeys: keys.map((key: any) => ({
+      key: key,
+      selector: new FieldSelectionDecoder(
+        getModelField(queryModel, key) as any,
+        query,
+        key
+      ),
+    })) as any,
+  });
+}) as any;
+
 export const select: Select = ((model: any, ...keys: any[]) => {
-  if (model[symbolQuery]) {
-    const query = model[symbolQuery];
-    const queryModel = query.model;
-
-    return new ReferenceSelector({
-      ...query,
-      selectKeys: keys.map((key: any) => ({
-        key: key,
-        selector: new FieldSelectionDecoder(
-          getModelField(queryModel, key) as any,
-          query,
-          key
-        ),
-      })) as any,
-    });
-  }
-
   const query = emptyQuery(model);
 
   return new DBQuery<any, any>({

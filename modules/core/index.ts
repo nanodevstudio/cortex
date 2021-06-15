@@ -1,6 +1,6 @@
 export * as t from "./types";
 export * as op from "./operators";
-export { select, DBQuery } from "./query";
+export { select, subselect, DBQuery } from "./query";
 export { resetAndSeed, buildSchemaAndSeed } from "./reset";
 export type { SeedFn, SeedContext, GlobPath, ResetBasis } from "./reset";
 export type { Model } from "./model";

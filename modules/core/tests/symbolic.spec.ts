@@ -4,7 +4,7 @@ import { count } from "../aggregate";
 import { DBClient } from "../dbClient";
 import { anyOf, equal, notEqual } from "../operators";
 import { makeDBTestManager } from "../postgresManager";
-import { select } from "../query";
+import { select, subselect } from "../query";
 import { SeedFn } from "../reset";
 import * as t from "../types";
 import { insertAll, sql, update } from "../writes";
@@ -173,8 +173,9 @@ describe("DBQuery::with", () => {
 
     const result = await select(Project, "name")
       .with((project) => {
+        project.user;
         return {
-          user: select(project.user, "name"),
+          user: subselect(project.user, "name"),
         };
       })
       .where({ name: "test" })

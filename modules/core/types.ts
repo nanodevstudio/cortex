@@ -36,7 +36,7 @@ export interface FieldTypeF<
   (): FieldType<T, U, P, R>;
 }
 
-export const castType = <T>() => (({} as any) as T);
+export const castType = <T>() => ({} as any as T);
 
 export const makeType = <T, U = T>(
   baseType: string,
@@ -65,6 +65,7 @@ export class JSONValue {
 
 export const text = makeType<string>("text");
 export const utcTimestamp = makeType<Date>("timestamp without time zone");
+export const real = makeType<number>("real");
 export const integer = makeType<number>("integer");
 export const uuid = makeType<string>("uuid");
 export const boolean = makeType<boolean>("boolean");

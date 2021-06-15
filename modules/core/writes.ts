@@ -291,14 +291,14 @@ class UpdateQuery<M, SelectData extends any[]> extends ProtectPromise {
       }
 
       if (result && result[queryExpression]) {
-        value = result[queryExpression]().sql;
+        result = result[queryExpression]().sql;
       }
 
-      if (isSQLSegment(value)) {
-        return sql`${column} = ${value}`;
+      if (isSQLSegment(result)) {
+        return sql`${column} = ${result}`;
       }
 
-      return sql`${column} = ${encodeValue(field, value)}`;
+      return sql`${column} = ${encodeValue(field, result)}`;
     });
 
     return joinSQL([
