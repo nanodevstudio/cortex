@@ -328,6 +328,20 @@ export const getSelector = <T>(
   return value as IDecodeSelector<T>;
 };
 
+export const decodeQueryResults = (query: QueryData<any, any>, rows: any[]) => {
+  return rows.map((row) => {
+    return immer(row, (row: any) => {
+      for (const select of query.selectKeys) {
+        if (select.selector?.decodeResult) {
+          const { key } = select;
+
+          row[key] = select.selector.decodeResult(row, key);
+        }
+      }
+    });
+  }) as any;
+};
+
 export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
   constructor(public query: QueryData<M, SelectData>) {
     super(".get(db)");
@@ -342,8 +356,8 @@ export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
     return {
       id: id,
       select: sql`(${select})`,
-      decodeResult: (value: any) => {
-        return value[id];
+      decodeResult: (value: any, key: string) => {
+        return decodeQueryResults(this.query, value?.[key] ?? []);
       },
     };
   }
@@ -356,13 +370,13 @@ export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
     const [sql, values] = getQueryFromSegments(convertToSelect(this.query));
     const queryResult = await query(db, sql, values);
 
-    return queryResult.rows;
+    return decodeQueryResults(this.query, queryResult.rows ?? []);
   }
 
   async one(
     db: DBClient
   ): Promise<QueryResult<QueryData<M, SelectData>> | undefined> {
-    return (await this.get(db))[0];
+    return (await this.limit(1).get(db))[0];
   }
 
   with<R>(
@@ -373,6 +387,8 @@ export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
     return new DBQuery(
       immer(this.query, (query) => {
         const entries = Object.entries(result).map(([key, selector]) => {
+          selector = selector?.[decodeSelector] ?? selector;
+
           return { key, selector: selector as IDecodeSelector<any> };
         });
 

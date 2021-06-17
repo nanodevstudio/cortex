@@ -168,6 +168,25 @@ describe("DBQuery::with", () => {
     });
   });
 
+  test("subselects return empty array instead of null when no results", async () => {
+    await reset();
+
+    const result = await select(User, "name")
+      .with((user) => ({
+        projects: select(Project, "name").where({
+          user: user.id,
+          name: "this_name_does_not_exist",
+        }),
+      }))
+      .where({ name: "test" })
+      .one(db);
+
+    expect(result).toEqual({
+      name: "test",
+      projects: [],
+    });
+  });
+
   test("can get single entities by using select", async () => {
     await reset();
 

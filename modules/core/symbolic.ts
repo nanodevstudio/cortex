@@ -63,7 +63,7 @@ export type DecodeSelector<DecodeResult> =
 export interface IDecodeSelector<DecodeResult> {
   id: string;
   select: SQLSegment;
-  decodeResult?: (value: any) => DecodeResult;
+  decodeResult?: (value: any, key: string) => DecodeResult;
 }
 
 export type SelectionEntry<Key, DecodeResult> = {
@@ -109,8 +109,8 @@ export class FieldSelectionDecoder<F extends FieldType<any, any, any>>
     };
   }
 
-  decodeResult(value: any): ReadType<F> {
-    return value[this.id];
+  decodeResult(value: any, key: string): ReadType<F> {
+    return value[key];
   }
 }
 
