@@ -1,6 +1,6 @@
 {
   "name": "@nanodev/cortex",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "",
   "main": "./build/core/index.js",
   "types": "./build/core/index.d.ts",

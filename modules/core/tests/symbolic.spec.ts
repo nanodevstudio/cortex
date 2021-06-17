@@ -357,8 +357,26 @@ describe("page", () => {
 
     const results = await page(
       db,
-      { limit: 3, offset: 3 },
+      { limit: 2, offset: 1 },
       select(Sort, "value")
     );
+
+    expect(results).toEqual({
+      hasMore: true,
+      page: [{ value: 45 }, { value: 9 }],
+      total: 7,
+    });
+
+    const lastPage = await page(
+      db,
+      { limit: 1, offset: 6 },
+      select(Sort, "value")
+    );
+
+    expect(lastPage).toEqual({
+      hasMore: false,
+      page: [{ value: 5 }],
+      total: 7,
+    });
   });
 });
