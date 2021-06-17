@@ -31,6 +31,20 @@ class Operator<M, T> implements WhereOperator<M, T> {
   }
 }
 
+class NilMatch implements WhereOperator<any, any> {
+  constructor() {}
+
+  [whereOperator] = true as const;
+
+  type(): any {
+    throw new Error("virtual method, do not call");
+  }
+
+  getClause(query: QueryData<any, any>, source: SQLSegment) {
+    return sql`FALSE`;
+  }
+}
+
 class ValueQueryExpression implements QueryExpression<any, any> {
   constructor(public value: any) {}
 
@@ -69,6 +83,10 @@ export const notEqual = <T, M>(
 export const anyOf = <T, M>(
   value: T[] | QueryExpression<M, T>
 ): WhereOperator<M, T> => {
+  if (Array.isArray(value) && value.length === 0) {
+    return new NilMatch();
+  }
+
   return new Operator<M, T>(
     "IN",
     Array.isArray(value)

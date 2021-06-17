@@ -299,6 +299,16 @@ describe("op(operator, value)", () => {
 
     expect(result.length).toBe(2);
     expect(result).toEqual([{ name: "test" }, { name: "test2" }]);
+
+    const resultNone = await select(Project, "name")
+      .where({
+        compareNumber2: anyOf([]),
+      })
+      .orderBy("compareNumber2")
+      .get(db);
+
+    expect(resultNone.length).toBe(0);
+    expect(resultNone).toEqual([]);
   });
 });
 
