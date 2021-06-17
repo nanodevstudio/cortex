@@ -3,6 +3,7 @@ import { resetAndSeed } from "..";
 import { count } from "../aggregate";
 import { DBClient } from "../dbClient";
 import { anyOf, equal, notEqual } from "../operators";
+import { page } from "../page";
 import { makeDBTestManager } from "../postgresManager";
 import { select, subselect } from "../query";
 import { SeedFn } from "../reset";
@@ -347,5 +348,17 @@ describe("update by sql", () => {
     for (const result of results) {
       expect(result.compareNumber1).toEqual(result.compareNumber2);
     }
+  });
+});
+
+describe("page", () => {
+  test("returns page count", async () => {
+    await resetForSort();
+
+    const results = await page(
+      db,
+      { limit: 3, offset: 3 },
+      select(Sort, "value")
+    );
   });
 });

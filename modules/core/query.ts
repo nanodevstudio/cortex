@@ -46,6 +46,7 @@ export interface QueryData<M, SelectData extends any[]> {
   model: Model<M>;
   selectKeys: SelectData;
   limit?: number;
+  offset?: number;
   where: SQLSegment[];
   join: {
     type: "inner" | "outer" | "left";
@@ -183,6 +184,10 @@ const limitToSQL = (limit: number | undefined) => {
   return limit != null ? sql`LIMIT ${limit}` : null;
 };
 
+const offsetToSQL = (offset: number | undefined) => {
+  return offset != null ? sql`OFFSET ${offset}` : null;
+};
+
 const convertToJSONSingleSelect = (query: QueryData<any, any>) => {
   return joinSQL([
     sql`SELECT ${makeJSONSelectClause(true, query)}`,
@@ -193,6 +198,7 @@ const convertToJSONSingleSelect = (query: QueryData<any, any>) => {
     whereToSQL(query.where),
     orderToSQL(query.orderBy),
     limitToSQL(query.limit),
+    offsetToSQL(query.offset),
   ]);
 };
 
@@ -206,6 +212,7 @@ const convertToJSONSelect = (query: QueryData<any, any>) => {
     whereToSQL(query.where),
     orderToSQL(query.orderBy),
     limitToSQL(query.limit),
+    offsetToSQL(query.offset),
   ]);
 };
 
@@ -250,6 +257,7 @@ const convertToSelect = (query: QueryData<any, any>) => {
     whereToSQL(query.where),
     orderToSQL(query.orderBy),
     limitToSQL(query.limit),
+    offsetToSQL(query.offset),
   ]);
 };
 
@@ -362,6 +370,10 @@ export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
     };
   }
 
+  toSegment() {
+    return convertToSelect(this.query);
+  }
+
   toSQL() {
     return getQueryFromSegments(convertToSelect(this.query));
   }
@@ -393,6 +405,14 @@ export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
         });
 
         query.selectKeys.push(...entries);
+      }) as any
+    );
+  }
+
+  offset(count: number): DBQuery<M, SelectData> {
+    return new DBQuery(
+      immer(this.query, (query) => {
+        query.offset = count;
       }) as any
     );
   }

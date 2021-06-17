@@ -1,5 +1,6 @@
 import { Client, ClientConfig } from "pg";
 import { bgWhite } from "ansi-colors";
+import { getQueryFromSegments, SQLSegment, SQLSegmentList } from "./writes";
 
 export type DBClient = {
   client?: Client;
@@ -22,6 +23,31 @@ export const getPGClient = async (client: DBClient) => {
   await pgClient.connect();
 
   return pgClient;
+};
+
+export const querySQL = async (client: DBClient, query: SQLSegmentList) => {
+  const [sql, values] = getQueryFromSegments(query);
+  const pg = await getPGClient(client);
+
+  try {
+    return await pg.query(sql, values);
+  } catch (e) {
+    console.log(e);
+    let errorQuery = sql;
+
+    if (e.severity === "ERROR") {
+      const before = errorQuery.slice(0, e.position - 1);
+      const after = errorQuery.slice(e.position - 1);
+
+      errorQuery = before + "|error>|" + after;
+    }
+
+    throw new Error(
+      `SQL Error: ${
+        e.message
+      }, query: \n${errorQuery}\n values: ${JSON.stringify(values)}`
+    );
+  }
 };
 
 export const query = async (
