@@ -1,5 +1,5 @@
 import { DBClient, query, querySQL } from "./dbClient";
-import { DBQuery } from "./query";
+import { DBQuery, QueryData, QueryResult } from "./query";
 import { decodeSelector } from "./symbols";
 import { sql } from "./writes";
 
@@ -12,7 +12,11 @@ export const page = async <M, SelectData extends any[]>(
   db: DBClient,
   pageOptions: PageOptions,
   dataQuery: DBQuery<M, SelectData>
-) => {
+): Promise<{
+  total: number;
+  hasMore: boolean;
+  page: QueryResult<QueryData<M, SelectData>>[];
+}> => {
   const pageQuery = await querySQL(
     db,
     sql`WITH data_query as (${dataQuery.toSegment()}) SELECT (SELECT count(dqc.*) FROM data_query as dqc) as total_count, (SELECT json_agg(dq.*) FROM (SELECT dql.* FROM data_query as dql LIMIT ${
