@@ -312,6 +312,46 @@ describe("op(operator, value)", () => {
   });
 });
 
+test("can use anyOf operator to select by list type", async () => {
+  class WithList {
+    id = t.generatedId;
+    list = t.array(t.uuid);
+  }
+
+  class Refed {
+    id = t.generatedId;
+    name = t.text;
+  }
+
+  await resetAndSeed({
+    db: db,
+    models: [WithList, Refed],
+    seeds: [
+      async ({ db }) => {
+        const [{ id: oneId }, { id: twoId }] = await insertAll(Refed, [
+          { name: "one" },
+          { name: "two" },
+          { name: "three" },
+        ]).transact(db);
+
+        await insertAll(WithList, [
+          {
+            list: [oneId, twoId],
+          },
+        ]).transact(db);
+      },
+    ],
+  });
+
+  const result = await select(WithList)
+    .with((withList) => ({
+      refed: select(Refed, "name").where({ id: anyOf(withList.list) }),
+    }))
+    .one(db);
+
+  expect(result).toEqual({ refed: [{ name: "one" }, { name: "two" }] });
+});
+
 describe("orderBy", () => {
   test("can sort asc / desc properly", async () => {
     await resetForSort();

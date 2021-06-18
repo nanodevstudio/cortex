@@ -66,6 +66,16 @@ class AnyValueQueryExpression implements QueryExpression<any, any> {
   }
 }
 
+class AnyWrapper implements QueryExpression<any, any> {
+  constructor(public value: QueryExpression<any, any>) {}
+
+  [queryExpression](model: any) {
+    return {
+      sql: sql`ANY(${this.value[queryExpression](model).sql})`,
+    };
+  }
+}
+
 export const asExpression = (value: any): QueryExpression<any, any> => {
   if (value[queryExpression]) {
     return value;
@@ -81,17 +91,21 @@ export const notEqual = <T, M>(
 };
 
 export const anyOf = <T, M>(
-  value: T[] | QueryExpression<M, T>
+  value: T[] | QueryExpression<any, T[]>
 ): WhereOperator<M, T> => {
   if (Array.isArray(value) && value.length === 0) {
     return new NilMatch();
+  }
+
+  if (!Array.isArray(value)) {
+    return new Operator<M, T>("=", new AnyWrapper(asExpression(value)));
   }
 
   return new Operator<M, T>(
     "IN",
     Array.isArray(value)
       ? new AnyValueQueryExpression(value)
-      : asExpression(queryExpression)
+      : asExpression(value)
   );
 };
 

@@ -287,6 +287,7 @@ export const addWhereClause = <Q extends QueryData<any, any>>(
           query.where.push(
             value.getClause(query, raw(getQualifiedSQLColumn(query, key)))
           );
+          return;
         } else if (
           field &&
           field.references &&
