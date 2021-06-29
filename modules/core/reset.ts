@@ -1,11 +1,11 @@
-import { Client } from "pg";
-import { closeClient, DBClient, query } from "./dbClient";
+import * as c from "ansi-colors";
+import assert from "assert";
+import { join } from "path";
+import glob from "tiny-glob";
+import { closeClient, DBClient, query, querySQL } from "./dbClient";
 import { generateForiegnKeys, generateSQLInsert } from "./generateSchema";
 import { Model } from "./model";
-import glob from "tiny-glob";
-import assert from "assert";
-import * as c from "ansi-colors";
-import { join } from "path";
+import { joinSQL, sql, SQLSegment, SQLSegmentList } from "./writes";
 
 export interface SeedContext {
   wait: <R>(dep: SeedFn<R>) => Promise<R>;
@@ -20,6 +20,8 @@ export type GlobPath = string;
 
 export interface ResetBasis {
   db: DBClient;
+  before?: SQLSegmentList[];
+  after?: SQLSegmentList[];
   models: (Model<any> | GlobPath)[];
   seeds: (SeedFn<any> | GlobPath)[];
 }
@@ -79,6 +81,10 @@ export const runSeeds = async (db: DBClient, seeds: SeedFn<any>[]) => {
 export const buildSchemaAndSeed = async (basis: ResetBasis) => {
   await query(basis.db, `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
+  for (const before of basis.before ?? []) {
+    await querySQL(basis.db, before);
+  }
+
   const models = await resolveModules(basis.models);
   const seeds = await resolveModules(basis.seeds);
 
@@ -103,6 +109,16 @@ export const buildSchemaAndSeed = async (basis: ResetBasis) => {
 
   if (fks.length > 0) {
     await query(basis.db, fks);
+  }
+
+  const indexQueries = models.flatMap((model) => model.indexes ?? []);
+
+  if (indexQueries.length > 0) {
+    await querySQL(basis.db, joinSQL(indexQueries, sql`;\n`));
+  }
+
+  for (const after of basis.after ?? []) {
+    await querySQL(basis.db, after);
   }
 
   await runSeeds(basis.db, seeds);

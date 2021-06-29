@@ -42,6 +42,7 @@ export interface SQLJoin<M> {
 
 export interface QueryData<M, SelectData extends any[]> {
   id: string;
+  qualify: boolean;
   orderBy: SQLSegment[];
   model: Model<M>;
   selectKeys: SelectData;
@@ -401,6 +402,9 @@ export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
       immer(this.query, (query) => {
         const entries = Object.entries(result).map(([key, selector]) => {
           selector = selector?.[decodeSelector] ?? selector;
+          selector = isSQLSegment(selector)
+            ? { id: uuid.v4(), select: selector }
+            : selector;
 
           return { key, selector: selector as IDecodeSelector<any> };
         });
@@ -429,8 +433,11 @@ export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
   orderBy(
     key:
       | UnknownToNever<
-          Extract<SelectData[number], { key: any }> extends { key: infer K }
-            ? K
+          Extract<SelectData[number], { key: string }> extends SelectionEntry<
+            infer key,
+            any
+          >
+            ? key
             : never
         >
       | keyof M,
@@ -454,8 +461,12 @@ export class DBQuery<M, SelectData extends any[]> extends ProtectPromise {
   }
 }
 
-export const emptyQuery = <M>(model: Model<M>): QueryData<M, any> => ({
+export const emptyQuery = <M>(
+  model: Model<M>,
+  opts: { qualify?: boolean } = {}
+): QueryData<M, any> => ({
   id: uuid.v4(),
+  qualify: opts.qualify ?? true,
   model,
   selectKeys: [],
   join: [],

@@ -1,5 +1,6 @@
 export * as t from "./types";
 export * as op from "./operators";
+export * as fullText from "./search";
 export { select, subselect, DBQuery } from "./query";
 export { page } from "./page";
 export { resetAndSeed, buildSchemaAndSeed } from "./reset";

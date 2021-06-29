@@ -32,6 +32,10 @@ export const getQualifiedSQLColumn = <T extends QueryData<any, any>>(
   query: T,
   key: string
 ) => {
+  if (!query.qualify) {
+    return JSON.stringify(key);
+  }
+
   return JSON.stringify(query.id) + "." + JSON.stringify(key);
 };
 
