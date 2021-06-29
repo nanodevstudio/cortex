@@ -441,7 +441,7 @@ describe("page", () => {
 });
 
 describe("custom indexes", () => {
-  test.only("full text search index", async () => {
+  test("full text search index", async () => {
     class Search {
       id = t.generatedId;
       name = t.text;

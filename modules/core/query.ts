@@ -264,7 +264,7 @@ const convertToSelect = (query: QueryData<any, any>) => {
 
 export const addWhereClause = <Q extends QueryData<any, any>>(
   query: Q,
-  clause: WhereClause<Q["model"]>
+  clause: WhereClause<Q["model"] extends Model<infer M> ? M : never>
 ) => {
   return immer(query, (query) => {
     clause =
