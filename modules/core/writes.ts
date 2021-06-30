@@ -108,6 +108,10 @@ export const escapeValue = (value: any): string => {
     return `(${value.map((value) => escapeValue(value)).join(", ")}}`;
   }
 
+  if (value instanceof Date) {
+    return escapeValue(value.toISOString());
+  }
+
   if (value && value.toPostgres) {
     return value.toPostgres(escapeValue);
   }
