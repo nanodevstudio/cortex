@@ -1,7 +1,7 @@
 import { getModelField } from "./generateSchema";
 import { Model } from "./model";
 import immer from "immer";
-import { SQLSegment } from "./writes";
+import { escapeValue, SQLSegment } from "./writes";
 
 export interface SQLType {
   baseType: string;
@@ -82,6 +82,14 @@ export const array = <T, U, P extends boolean>(
 
     return {
       ...type,
+      encode: (value: any[]) => {
+        const values = value
+          .map((value) => type.encode?.(value) ?? value)
+          .map((value) => JSON.stringify(value))
+          .join(",");
+
+        return `{${values}}`;
+      },
       sqlType: {
         ...type.sqlType,
         baseType: `${type.sqlType.baseType}[]`,

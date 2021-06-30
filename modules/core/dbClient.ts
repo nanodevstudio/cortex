@@ -25,11 +25,18 @@ export const getPGClient = async (client: DBClient) => {
   return pgClient;
 };
 
-export const querySQL = async (client: DBClient, query: SQLSegmentList) => {
+export const querySQL = async (
+  client: DBClient,
+  query: SQLSegmentList,
+  options: { multi?: boolean } = { multi: false }
+) => {
   const [sql, values] = getQueryFromSegments(query);
   const pg = await getPGClient(client);
 
   try {
+    if (options.multi === true) {
+      return await pg.multi(sql, values);
+    }
     return await pg.query(sql, values);
   } catch (e) {
     console.log(e);

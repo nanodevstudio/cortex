@@ -1,7 +1,8 @@
-import { querySQL } from "./dbClient";
+import immer from "immer";
+import * as uuid from "uuid";
 import { getQualifiedSQLColumn, getQualifiedSQLTable } from "./generateSchema";
 import { Model } from "./model";
-import { DBQuery, emptyQuery } from "./query";
+import { emptyQuery } from "./query";
 import {
   DecodeSelector,
   FieldSelection,
@@ -10,8 +11,6 @@ import {
   symbolFromQuery,
 } from "./symbolic";
 import { joinSQL, raw, sql, SQLSegmentList } from "./writes";
-import immer from "immer";
-import * as uuid from "uuid";
 
 export const searchExtensions = [
   sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`,

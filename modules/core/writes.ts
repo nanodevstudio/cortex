@@ -1,4 +1,5 @@
 import immer from "immer";
+import * as uuid from "uuid";
 import { DBClient, getPGClient, query, querySQL } from "./dbClient";
 import {
   getModelField,
@@ -11,17 +12,16 @@ import { ProtectPromise } from "./protectPromise";
 import {
   addWhereClause,
   emptyQuery,
-  flattenJoins,
   makeSelectClause,
   QueryData,
   SelectRow,
   WhereClause,
   whereToSQL,
 } from "./query";
-import { FieldType, FieldTypeF } from "./types";
-import * as uuid from "uuid";
-import { queryExpression } from "./symbols";
+import escape from "pg-escape";
 import { ModelSymbol, QueryExpression, symbolFromQuery } from "./symbolic";
+import { queryExpression } from "./symbols";
+import { FieldType, FieldTypeF } from "./types";
 
 export type UpdateTypeOfField<Field> = Field extends FieldTypeF<any, infer U>
   ? U
@@ -87,6 +87,34 @@ class ArrayEncode {
   }
 }
 
+export const escapeValue = (value: any): string => {
+  if (typeof value === "string") {
+    return escape.literal(value);
+  }
+
+  if (typeof value === "number") {
+    return `${value}`;
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "TRUE" : "FALSE";
+  }
+
+  if (value === null) {
+    return "NULL";
+  }
+
+  if (Array.isArray(value)) {
+    return `(${value.map((value) => escapeValue(value)).join(", ")}}`;
+  }
+
+  if (value && value.toPostgres) {
+    return value.toPostgres(escapeValue);
+  }
+
+  throw new Error(`illegal sql value ${value}`);
+};
+
 export const getQueryFromSegments = (segment: SQLSegmentList) => {
   const values: any[] = [];
 
@@ -94,8 +122,9 @@ export const getQueryFromSegments = (segment: SQLSegmentList) => {
     return segment.items
       .map((item) => {
         if (item instanceof SQLValue) {
-          values.push(item.value);
-          return `$${values.length}`;
+          const value = item.value;
+
+          return escapeValue(value);
         }
 
         if (item instanceof SQLString) {
@@ -398,7 +427,7 @@ export const transact = async <M>(
     sql`;`
   );
 
-  const result = await querySQL(db, query);
+  const result = await querySQL(db, query, { multi: true });
 
   return result.rows as any;
 };
