@@ -11,3 +11,4 @@ export { insert, remove, update, insertAll, sql } from "./writes";
 export type { DBClient, querySQL } from "./dbClient";
 export { makeClient, closeClient } from "./dbClient";
 export { count } from "./aggregate";
+export { makeIndex } from "./indexs";

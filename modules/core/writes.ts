@@ -1,5 +1,5 @@
 import immer from "immer";
-import { DBClient, getPGClient, query } from "./dbClient";
+import { DBClient, getPGClient, query, querySQL } from "./dbClient";
 import {
   getModelField,
   getModelInstance,
@@ -11,6 +11,7 @@ import { ProtectPromise } from "./protectPromise";
 import {
   addWhereClause,
   emptyQuery,
+  flattenJoins,
   makeSelectClause,
   QueryData,
   SelectRow,
@@ -363,6 +364,12 @@ class RemoveQuery<M, SelectData extends any[]> extends ProtectPromise {
   toSQL() {
     const { query, model } = this;
 
+    if (this.protectRemoveAll) {
+      throw new Error(
+        "This query would remove all documents from this table. We prevented it, if you'd really like to do this then use the .allowDeleteAll() method"
+      );
+    }
+
     return joinSQL([
       sql`DELETE FROM ${raw(getQualifiedSQLTable(model))} as ${raw(
         JSON.stringify(query.id)
@@ -378,15 +385,23 @@ class RemoveQuery<M, SelectData extends any[]> extends ProtectPromise {
     const [sql, values] = getQueryFromSegments(this.toSQL());
     const result = await query(db, sql, values);
 
-    if (this.protectRemoveAll) {
-      throw new Error(
-        "This query would remove all documents from this table. We prevented it, if you'd really like to do this then use the .allowDeleteAll() method"
-      );
-    }
-
     return result.rows;
   }
 }
+
+export const transact = async <M>(
+  db: DBClient,
+  txs: { toSQL: () => SQLSegment }[]
+): Promise<any[]> => {
+  const query = joinSQL(
+    txs.map((tx) => tx.toSQL()),
+    sql`;`
+  );
+
+  const result = await querySQL(db, query);
+
+  return result.rows as any;
+};
 
 export const update = <M>(model: Model<M>, record: Partial<InsertInput<M>>) => {
   return new UpdateQuery<M, []>(model, record, emptyQuery(model));
