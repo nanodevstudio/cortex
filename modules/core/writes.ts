@@ -427,7 +427,7 @@ export const transact = async <M>(
     sql`;`
   );
 
-  const result = await querySQL(db, query, { multi: true });
+  const result = await querySQL(db, query);
 
   return result.rows as any;
 };
