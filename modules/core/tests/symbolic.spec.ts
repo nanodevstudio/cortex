@@ -186,9 +186,8 @@ describe("DBQuery::with", () => {
         projects: select(Project, "name")
           .where({
             user: user.id,
-            name: "test",
           })
-          .orderBy("compareNumber2"),
+          .orderBy("compareNumber2", "DESC"),
       }))
       .where({ name: "test" })
       .one(db);
@@ -197,7 +196,7 @@ describe("DBQuery::with", () => {
 
     expect(result).toEqual({
       name: "test",
-      projects: [{ name: "test" }],
+      projects: [{ name: "test2" }, { name: "test" }],
     });
   });
 
