@@ -27,7 +27,7 @@ beforeAll(async () => {
   const config: ClientConfig = {
     host: "localhost",
     port: 5432,
-    user: "amp",
+    user: "samueldesota",
     password: "",
     database: "postgres",
   };
@@ -166,6 +166,29 @@ describe("DBQuery::with", () => {
           user: user.id,
           name: "test",
         }),
+      }))
+      .where({ name: "test" })
+      .one(db);
+
+    expectType<string | undefined>()(result?.projects[0]?.name);
+
+    expect(result).toEqual({
+      name: "test",
+      projects: [{ name: "test" }],
+    });
+  });
+
+  test("can order related entities", async () => {
+    await reset();
+
+    const result = await select(User, "name")
+      .with((user) => ({
+        projects: select(Project, "name")
+          .where({
+            user: user.id,
+            name: "test",
+          })
+          .orderBy("compareNumber2"),
       }))
       .where({ name: "test" })
       .one(db);

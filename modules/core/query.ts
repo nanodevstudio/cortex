@@ -204,17 +204,12 @@ const convertToJSONSingleSelect = (query: QueryData<any, any>) => {
 };
 
 const convertToJSONSelect = (query: QueryData<any, any>) => {
-  return joinSQL([
-    sql`SELECT ${makeJSONSelectClause(false, query)}`,
-    sql`FROM ${raw(getQualifiedSQLTable(query.model))} as ${raw(
-      JSON.stringify(query.id)
-    )}`,
-    joinsToSQL(query.join),
-    whereToSQL(query.where),
-    orderToSQL(query.orderBy),
-    limitToSQL(query.limit),
-    offsetToSQL(query.offset),
-  ]);
+  const baseSelect = convertToSelect(query);
+
+  return sql`SELECT ${makeJSONSelectClause(
+    false,
+    query
+  )} FROM (${baseSelect}) as ${raw(JSON.stringify(query.id))}`;
 };
 
 export const makeSelectClause = (query: QueryData<any, any>) => {

@@ -100,7 +100,7 @@ export const escapeValue = (value: any): string => {
     return value ? "TRUE" : "FALSE";
   }
 
-  if (value === null) {
+  if (value == null) {
     return "NULL";
   }
 

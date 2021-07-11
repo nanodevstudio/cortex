@@ -20,7 +20,7 @@ beforeAll(async () => {
   const config: ClientConfig = {
     host: "localhost",
     port: 5432,
-    user: "amp",
+    user: "samueldesota",
     password: "",
     database: "postgres",
   };
