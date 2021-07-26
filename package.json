@@ -1,11 +1,15 @@
 {
   "name": "@nanodev/cortex",
-  "version": "2.2.5",
+  "version": "2.2.9",
   "description": "",
   "main": "./build/core/index.js",
   "types": "./build/core/index.d.ts",
+  "bin": {
+    "cortex": "./build/cli/cli.js"
+  },
   "scripts": {
     "dev": "mito dev",
+    "cortex": "ts-node modules/cli/cli.ts",
     "configure": "mito configure",
     "mito": "mito",
     "test": "jest",
@@ -21,10 +25,12 @@
     "@types/pg-escape": "^0.2.1",
     "@types/uuid": "^8.3.0",
     "ts-jest": "^26.5.4",
+    "ts-node": "^10.1.0",
     "typescript": "^4.2.4"
   },
   "dependencies": {
     "ansi-colors": "^4.0.0",
+    "commander": "^8.0.0",
     "pg": "^8.5.1",
     "pg-escape": "^0.2.0",
     "tiny-glob": "^0.2.8",

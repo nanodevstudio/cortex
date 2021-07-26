@@ -1,6 +1,6 @@
 import immer from "immer";
 import * as uuid from "uuid";
-import { DBClient, query } from "./dbClient";
+import { DBClient, query, querySQL } from "./dbClient";
 import assert from "assert";
 import {
   getModelField,
@@ -192,19 +192,17 @@ const offsetToSQL = (offset: number | undefined) => {
 const convertToJSONSingleSelect = (query: QueryData<any, any>) => {
   const baseSelect = convertToSelect(query);
 
-  return sql`SELECT ${makeJSONSelectClause(
-    true,
-    query
-  )} FROM (${baseSelect}) as ${raw(JSON.stringify(query.id))}`;
+  return sql`SELECT jsonb_agg(${raw(
+    JSON.stringify(query.id + "json")
+  )}.*)->0 FROM (${baseSelect}) as ${raw(JSON.stringify(query.id + "json"))}`;
 };
 
 const convertToJSONSelect = (query: QueryData<any, any>) => {
   const baseSelect = convertToSelect(query);
 
-  return sql`SELECT ${makeJSONSelectClause(
-    false,
-    query
-  )} FROM (${baseSelect}) as ${raw(JSON.stringify(query.id))}`;
+  return sql`SELECT jsonb_agg(${raw(
+    JSON.stringify(query.id + "json")
+  )}.*) FROM (${baseSelect}) as ${raw(JSON.stringify(query.id + "json"))}`;
 };
 
 export const makeSelectClause = (query: QueryData<any, any>) => {
