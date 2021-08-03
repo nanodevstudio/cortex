@@ -1,7 +1,6 @@
+import immer from "immer";
 import { getModelField } from "./generateSchema";
 import { Model } from "./model";
-import immer from "immer";
-import { escapeValue, SQLSegment } from "./writes";
 
 export interface SQLType {
   baseType: string;

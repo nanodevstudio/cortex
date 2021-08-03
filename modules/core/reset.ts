@@ -30,7 +30,22 @@ const globAbsolute = async (path: string) => {
   return await (await glob(path)).map((fsPath) => join(process.cwd(), fsPath));
 };
 
-const resolveModules = async <T>(vals: (T | string)[]): Promise<T[]> => {
+export const resolveModulesWithNames = async <T>(
+  vals: string[]
+): Promise<{ module: T; path: string }[]> => {
+  return Promise.all(
+    vals.map(async (val) => {
+      const paths = await globAbsolute(val);
+
+      return paths.map((path) => ({
+        path: path,
+        module: require(path).default,
+      }));
+    })
+  ).then((res) => res.flat());
+};
+
+export const resolveModules = async <T>(vals: (T | string)[]): Promise<T[]> => {
   return Promise.all(
     vals.map(async (val) => {
       if (typeof val === "string") {

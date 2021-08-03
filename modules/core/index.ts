@@ -12,3 +12,5 @@ export type { DBClient } from "./dbClient";
 export { makeClient, querySQL, closeClient } from "./dbClient";
 export { count } from "./aggregate";
 export { makeIndex } from "./indexs";
+export { migrate } from "./migrations";
+export type { MigrationFn, MigrationOptions } from "./migrations";
