@@ -43,7 +43,9 @@ export const migrate = async ({ db, migrations }: MigrationOptions) => {
       await migration.module(db);
       await querySQL(
         db,
-        sql`INSERT INTO ${raw(migrationTableName)} VALUES (${migration.id});`
+        sql`INSERT INTO ${raw(
+          migrationTableName
+        )} (id, "transactedAt") VALUES (${migration.id}, ${new Date()});`
       );
       console.log(c.green(`✅ ran migration: ${migration.id}`));
     } catch (e) {

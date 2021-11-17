@@ -49,7 +49,7 @@ class ValueQueryExpression implements QueryExpression<any, any> {
   constructor(public value: any) {}
 
   [queryExpression](model: any) {
-    return { sql: new SQLValue(this.value) };
+    return { sql: sql`${this.value}` };
   }
 }
 
@@ -141,4 +141,16 @@ export const gte = <T extends number, M>(
 
 export const op = <T, M>(operator: string, value: any): WhereOperator<M, T> => {
   return new Operator<M, T>(operator, asExpression(value));
+};
+
+export const isNot = <T extends number, M>(
+  value: T | SQLSegment | QueryExpression<M, T> | null
+): WhereOperator<M, T> => {
+  return new Operator<M, T>("IS NOT", asExpression(value));
+};
+
+export const is = <T extends number, M>(
+  value: T | SQLSegment | QueryExpression<M, T> | null
+): WhereOperator<M, T> => {
+  return new Operator<M, T>("IS", asExpression(value));
 };
